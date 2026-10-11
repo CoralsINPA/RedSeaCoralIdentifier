@@ -74,3 +74,7 @@ known-first-party = ["coralid"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+filterwarnings = [
+    # pycocotools (a C extension) trips a numpy 2 copy-keyword deprecation inside mask.decode.
+    "ignore:__array__ implementation doesn't accept a copy keyword:DeprecationWarning",
+]
