@@ -14,6 +14,10 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
 - Default model: ReefNet fine-tuned BioCLIP (ViT-B/16); alternatives are BioCLIP 2 and SigLIP 2.
 - Millepora precision is 58.9% on sharp crops at confidence >= 0.85.
 - Expert test set: 78 hand-labeled crops (`assaf_expert_test_set.csv`), joined on `(image_name, coral_id)`.
+- Label set: the 20 hard-coral genera (decided 2026-10-11). The 24-genus v2 pipeline is not carried forward.
+
+## Agent memory
+`docs/agent_memory/` holds project history, expert-review results and conclusions from earlier sessions. Read its `README.md` before analysis or planning work. At the end of a session, add `sessions/YYYY-MM-DD_<topic>.md` and update "Current understanding" there. The repo is public, so don't put anything private in it.
 
 ## Not in the repo
 Images, mask JSONs, embeddings, label CSVs, the CoralSCOP checkpoint, `ground_truth_genus_counts.csv` and the expert test set live in a shared Google Drive. Use the Google Drive MCP tools if connected (search by `parentId`), otherwise ask the user for any file you need.

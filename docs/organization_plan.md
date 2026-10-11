@@ -150,7 +150,7 @@ RedSeaCoralIdentifier/
 | `manifest.py` | Builds and reads the per-run coral table (§3.4 #4) | The counts caches (WC 12, V2 7), `cleaned_jsons_filtered/`, on-the-fly filtering |
 | `segmentation.py` | Loads CoralSCOP from the submodule, failing loudly with no `strict=False` fallback. Builds the generator and runs `segment_image`. Can optionally keep `cate_preds` and `fc_features`. | CM 6-8 |
 | `encoders.py` | One interface for DINOv2, DinoVdeau, BioCLIP-FT, BioCLIP-2 and SigLIP-2: `encode_images`, plus `encode_texts` for the vision-language models. Heavy imports stay inside each class. | CM 9-11, WC 14 §1/§3, V2 9 |
-| `genera.py` | Loads `genera.yaml`. Provides the label sets (`hard20`, `hard20_soft4`) and builds the prompts for each format, including the ensemble. Both current taxonomy variants are kept as named, versioned prompt sets. | Prompt dicts in WC 14 and V2 9, tier sets in V2 4 |
+| `genera.py` | Loads `genera.yaml`. Provides the label set (`hard20`; the 4 soft corals stay in the file only as optional reject prompts) and builds the prompts for each format, including the ensemble. Both current taxonomy variants are kept as named, versioned prompt sets. | Prompt dicts in WC 14 and V2 9, tier sets in V2 4 |
 | `zero_shot.py` | Builds text embeddings per prompt format, scores crops into probabilities, and returns top-k, runner-up and margin as a prediction table | WC 14 §3, §8, §9; V2 10 |
 | `batch.py` | Resumable per-image runner: a done-manifest, part files, a final merge, and a failure log instead of empty JSONs | V2 10's checkpointing (the best pattern in the codebase), CM 8 smart-skip |
 | `labeling.py` | Tier rules, review-sheet export, ingesting completed reviews by key, and a per-genus audit sheet with summary that works for any genus | V2 12-13, 16; MA 7-8 |
@@ -158,7 +158,7 @@ RedSeaCoralIdentifier/
 | `evaluation.py` | Scores predictions against the expert set. Normalizes the special labels (`unidentifiable`, `MISSING_LABEL`, and soft corals outside the target set). Reports per-genus precision/recall, confusion pairs, and the genus distribution compared with `ground_truth_genus_counts.csv`. | WC 10 (commented out), WC 23, V2 19-20, MA 2 |
 | `clustering.py` | PCA, UMAP, t-SNE, KMeans and HDBSCAN, with silhouette, Davies-Bouldin and compactness scores | CM 12-15, 19-21 |
 | `viz.py` | Crop grids, per-genus galleries, multi-page PDFs and mask overlays. Each takes a table plus an `AnnotationStore`. | CM 8 §4, 14, 16, 22; WC 16, 18, 20, 25; MA 3-4, 6, 9; V2 13-14, 22 |
-| `colab.py` | Mounts Drive, sets `DATA_ROOT`, and installs the package from GitHub (reading a token from Colab Secrets if the repo is private) | The 6 `drive.mount` cells |
+| `colab.py` | Mounts Drive, sets `DATA_ROOT`, and installs the package from GitHub (no token needed while the repo is public). The only Colab-specific module. | The 6 `drive.mount` cells |
 | `cli.py` | `python -m coralid {segment, build-manifest, embed, zero-shot, tier, export-review, train-probe, evaluate} --config ...` | "Run all cells" for multi-hour jobs |
 
 ### 3.4 Conventions (the rules that prevent the bugs in §2.1)
@@ -195,7 +195,7 @@ Each notebook follows the same shape: a setup cell (`coralid.colab.setup()`), a 
 - `02_embeddings_explore`: extract features and explore clusters (today's CM 12-22).
 - `03_zero_shot`: run one or more configs on a named subset, compare them, and evaluate.
 - `04_expert_review_and_audits`: export review sheets and PDFs, ingest the results, and run per-genus audits (MA generalized to any genus).
-- `05_supervised_probe`: V2 Phase 2, rewritten on keys, with honest held-out evaluation.
+- `05_supervised_probe`: the linear-probe idea from V2 Phase 2, on the 20 hard genera, rewritten on keys, with honest held-out evaluation.
 
 ### 3.7 Tooling
 
@@ -219,21 +219,28 @@ The principle: extract first, prove parity, then fix. If we fix bugs while extra
 |---|---|---|---|
 | **0. Hygiene** | Add `pyproject`, ruff, pre-commit with nbstripout, and `.gitignore`. Pull V2 from Drive into `notebooks/legacy/` and move today's notebooks there unchanged. Make the doc corrections from §2.3. | `pip install -e .[dev]` works and CI passes | S |
 | **1. Core library, same behavior** | Write `config`, `masks`, `images`, `crops`, `filters`, `manifest`, `genera`, `zero_shot`, `evaluation` and `batch`, with unit tests. Reproduce today's behavior exactly, quirks included. Add a one-off audit listing JSONs that aren't 2560×1920 and empty JSONs that have a `note` field. | Unit tests pass on CPU | M |
-| **2. Parity on Colab** | Run the new code on the Drive data. (a) Filter counts must come out as 44,211 → 16,197 → 14,224. (b) Zero-shot on the 50-image sample must match `..._masked_best.csv`, 842 rows. That file was rewritten on 2026-10-11, so confirm the row count first. (c) V2 phase 1 on the first 100 images must match `v2_weak_labels_part_0000.csv`, 900 rows. | Same keys, ≥ 99.5% identical top-1, and probabilities within 1e-3 | S (3 cells for you to run on a Colab GPU) |
-| **3. Fixes, one per commit** | Fix the frame bug in feature and crop code, then regenerate or delete `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 CSV. Switch to key-based joins. Fix segmentation error handling. Settle on one sharpness definition. Move containment onto RLE. Wire up the expert evaluation. | Each commit states which numbers changed and by how much | M |
+| **2. Parity on Colab** | Run the new code on the Drive data. (a) Filter counts must come out as 44,211 → 16,197 → 14,224. (b) Zero-shot on the 50-image sample must match `..._masked_best.csv`, 842 rows. That file was rewritten on 2026-10-11, so confirm the row count first. | Same keys, ≥ 99.5% identical top-1, and probabilities within 1e-3 | S (2 cells for you to run on a Colab GPU) |
+| **3. Fixes, one per commit** | Fix the frame bug in feature and crop code, and delete `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 CSV (approved). Switch to key-based joins. Fix segmentation error handling. Settle on one sharpness definition. Move containment onto RLE. Wire up the expert evaluation. Then run the 20-genus zero-shot on all images, saving embeddings, as the new baseline. Re-run the Millepora analysis on that baseline, reusing the 129 existing yes/no judgments, so only crops not already judged need review. | Each commit states which numbers changed and by how much | M |
 | **4. Rest of the package, notebooks, CLI** | Write `segmentation`, the DINO part of `encoders`, `labeling`, `probe`, `clustering`, `viz`, `colab` and `cli`, plus the five notebooks. Delete `legacy/` after one full end-to-end run. | A new person can run notebooks 01→04 from the README without editing code | M |
 
 Phase 1 goes in the order that unblocks the algorithm work: `masks → images → crops → filters → manifest → genera → zero_shot → evaluation`. Segmentation and DINO/clustering come last because they're stable and slow to re-run.
 
 Who does what: all code, tests and refactoring can happen in this repo on CPU. Anything that touches the photos, the masks or the GPU models has to run in Colab against Drive. That covers the Phase 2 parity runs and regenerating features, and I'll prepare those as ready-to-run cells.
 
-## 5. Decisions needed
+## 5. Decisions
 
-1. **Label set:** 20 hard genera (WC) or 24 including soft corals (V2)? The expert set contains soft-coral answers, which argues for 24, or for 20 plus an "other" class.
-2. **Cleanup on Drive:** OK to delete or regenerate `cleaned_images_crops/` and `cleaned_jsons_filtered/`? Does anything outside these notebooks use them?
-3. **Missing provenance:** where do `coral_dinoV3_encodings.csv` and `build_expert_test_set.py` come from? `Phase1_FeatureRectification.ipynb` in your Drive is a candidate; I haven't read it.
-4. **Repo visibility:** is the GitHub repo public? That decides how Colab installs the package.
-5. **Runtime:** is Colab the only runtime, or is there a lab GPU machine? A CLI-first design matters more if there is one.
+Decided on 2026-10-11:
+
+1. **Label set: 20 hard genera.** V2 is not carried forward as a pipeline. The package absorbs the parts of V2 that are worth keeping: saving embeddings, the runner-up column, checkpointing, and the review export. Soft corals still show up in the photos, so how to reject them is an algorithm question (§6).
+2. **Drive cleanup approved.** Delete `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 CSV in Phase 3; all three are defective. Regenerate them only if something needs them.
+3. **Unknown provenance doesn't block anything.**
+   - `coral_dinoV3_encodings.csv` only feeds the abandoned HDBSCAN exploration (CM 20-22), so it isn't carried forward.
+   - `build_expert_test_set.py` would only matter for rebuilding the expert set. Its output, `assaf_expert_test_set.csv`, exists.
+4. **The repo is public for now.** Colab installs the package with plain `pip install git+https://...`, with no token. Nothing private goes into the repo.
+5. **Runtime: Colab for now, though not ideal.** So nothing may depend on Colab beyond `colab.py`. Paths come from `DATA_ROOT` and long jobs run through the CLI, which lets the code move to a GPU machine later without changes.
+
+Still open:
+
 6. **Package name:** is `coralid` OK?
 
 ## 6. Parked for the algorithm discussion
@@ -246,3 +253,5 @@ These came up while reading but are algorithm questions, not organization ones:
 - **Favia vs Dipsastraea.** After the recent revisions, most Indo-Pacific *Favia* now sit in *Dipsastraea*, so keeping both as separate classes may be asking the model to tell synonyms apart. Worth checking with Assaf.
 - **Thin evidence.** The model comparisons and the Tier-1 genus list rest on 842 non-random crops and about 80 expert labels.
 - **V2 Phase 2 needs fixing before it runs.** It's the natural next step, but it needs keyed joins, held-out evaluation, and probably excluding auto-accepts for genera with known low precision.
+- **Soft corals still need somewhere to go.** With 20 hard genera as the output, soft corals in the photos have no class: 5 of the 62 identifiable crops in Assaf's review, and 11.7% of V2's predictions. A reject outcome is needed, such as an "other" threshold or soft-coral prompts used only as distractors. Otherwise these colonies get forced into a hard genus, which inflates false positives (Millepora's top runner-ups in V2 included Sinularia).
+- **Millepora precision is unknown for the 20-genus setup.** The 58.9% was measured on V2's 24-genus predictions. Without the soft-coral classes, some of those crops will move to Millepora.
