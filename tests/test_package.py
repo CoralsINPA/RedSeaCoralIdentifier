@@ -16,7 +16,7 @@ def test_import_stays_light():
         "import coralid.config, coralid.masks, coralid.images, coralid.crops, "
         "coralid.filters, coralid.manifest, coralid.genera, "
         "coralid.encoders, coralid.zero_shot, coralid.batch, coralid.evaluation, "
-        "coralid.predictions; "
+        "coralid.predictions, coralid.parity, coralid.parity_report; "
         "heavy = {'torch', 'torchvision', 'open_clip', 'transformers', 'umap', 'hdbscan', "
         "'sklearn', 'matplotlib'}; "
         "loaded = heavy & set(sys.modules); "
