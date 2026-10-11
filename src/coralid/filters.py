@@ -136,8 +136,14 @@ def filter_annotations(
 def laplacian_variance(crop_rgb: np.ndarray) -> float:
     """Variance of the Laplacian of the grayscale crop: the sharpness measure.
 
-    Note: on a masked crop this also responds to the artificial edge between the coral and
-    the plain background, not only to focus.
+    Which crop it is measured on is a setting (`FilterConfig.sharpness_crop`): the pipeline
+    measures the masked crop on a black background (threshold 80), the Millepora audit measured
+    the unmasked box (threshold 150).
+
+    Caution: on a masked crop this also responds to the artificial edge between the coral and
+    the plain background, so a flat but sharply outlined mask can pass. With correct crops the
+    masked measure rejected only 117 of 16,197 candidates, which suggests the outline dominates.
+    The unmasked box does not have this problem but includes the surroundings of the mask.
     """
     gray = cv2.cvtColor(crop_rgb, cv2.COLOR_RGB2GRAY)
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
@@ -147,6 +153,6 @@ def is_sharp_enough(crop: np.ndarray, threshold: float) -> bool:
     """True if the crop's Laplacian variance is at least `threshold`.
 
     The threshold has no default on purpose: the notebooks disagreed (50 in the helper,
-    80 in the settings). Pass `FilterConfig.sharpness_threshold`.
+    80 in the settings). Pass `FilterConfig.sharpness_cutoff`, which follows `sharpness_crop`.
     """
     return bool(laplacian_variance(crop) >= threshold)

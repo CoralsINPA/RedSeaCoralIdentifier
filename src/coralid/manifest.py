@@ -18,12 +18,13 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from coralid._atomic import atomic_path
 from coralid.batch import ResumableRun
 from coralid.config import Config, CropConfig, FilterConfig, write_meta
-from coralid.crops import masked_crop_stats
+from coralid.crops import bbox_crop, masked_crop_stats
 from coralid.filters import aspect_ratio, filter_annotations_with_reasons, laplacian_variance
 from coralid.images import ImageReadError, load_in_mask_frame
 from coralid.masks import (
@@ -104,8 +105,10 @@ def image_rows(
     """Manifest rows of one image, including visibility, sharpness and the keep decision.
 
     A mask removed by the geometric filters keeps that reason. The others are judged on the
-    masked crop (the pipeline's own: black background, Laplacian variance at least the
-    threshold). If the photo is missing or unreadable they get `image_missing`.
+    masked crop: visible pixels, then sharpness. By default sharpness is the pipeline's own
+    (the masked crop on a black background, Laplacian variance at least 80); with
+    `filters.sharpness_crop == "bbox"` it is the audit's (the unmasked box, at least 150). If the
+    photo is missing or unreadable they get `image_missing`.
     """
     rows = geometric_rows(mask_file, filters)
     for row in rows:
@@ -134,13 +137,23 @@ def image_rows(
         if crop is None or visible < crops.min_visible:
             row["reject_reason"] = REASON_NOT_VISIBLE
             continue
-        row["sharpness"] = laplacian_variance(crop)
-        if row["sharpness"] < filters.sharpness_threshold:
+        row["sharpness"] = _sharpness(img, anno["bbox"], crop, filters)
+        if row["sharpness"] < filters.sharpness_cutoff:
             row["reject_reason"] = REASON_BLURRY
         else:
             row["keep"] = True
             row["reject_reason"] = None
     return rows
+
+
+def _sharpness(
+    img: np.ndarray, bbox: Sequence[float], masked: np.ndarray, filters: FilterConfig
+) -> float:
+    """Laplacian variance of the crop that `filters.sharpness_crop` names."""
+    if filters.sharpness_crop == "masked":
+        return laplacian_variance(masked)
+    box = bbox_crop(img, bbox, padding_pct=0.0)  # the Millepora audit cut the plain box
+    return 0.0 if box is None else laplacian_variance(box)
 
 
 def _to_frame(rows: list[dict[str, Any]], columns: list[str]) -> pd.DataFrame:

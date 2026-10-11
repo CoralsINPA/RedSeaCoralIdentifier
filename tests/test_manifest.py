@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from coralid.config import Config, CropConfig, FilterConfig
+from coralid.config import Config, ConfigError, CropConfig, FilterConfig
 from coralid.filters import filter_annotations
 from coralid.manifest import (
     GEOMETRIC_COLUMNS,
@@ -313,3 +313,65 @@ def test_write_manifest_can_refuse_to_overwrite(geometry_dir, tmp_path):
     assert out.read_bytes() == before
     write_manifest(df.head(1), out)  # the default still replaces, as in Stage A1
     assert len(read_manifest(out)) == 1
+
+
+# ----------------------------------------------------------------- the sharpness crop option
+
+
+def test_sharpness_crop_defaults_keep_the_pipeline_definition():
+    f = FilterConfig()
+    assert (f.sharpness_crop, f.sharpness_cutoff) == ("masked", 80.0)
+    bbox = FilterConfig(sharpness_crop="bbox")
+    assert (bbox.sharpness_crop, bbox.sharpness_cutoff) == ("bbox", 150.0)
+    assert (
+        FilterConfig(sharpness_crop="bbox", sharpness_threshold_bbox=99.0).sharpness_cutoff == 99.0
+    )
+    with pytest.raises(ConfigError, match="sharpness_crop"):
+        FilterConfig(sharpness_crop="outline")
+
+
+def test_the_default_manifest_is_unchanged_by_the_option(image_setup):
+    json_dir, images, crops = image_setup
+    default = image_manifest(json_dir, images, FILTERS, crops)
+    explicit = image_manifest(
+        json_dir, images, FilterConfig(**{**FILTERS.__dict__, "sharpness_crop": "masked"}), crops
+    )
+    assert _records(default) == _records(explicit)
+
+
+def test_bbox_sharpness_is_the_millepora_audits_definition(image_setup):
+    """MA cell 5: Laplacian variance of the unmasked, unpadded box in the mask frame."""
+    json_dir, images, crops = image_setup
+    bbox_filters = FilterConfig(**{**FILTERS.__dict__, "sharpness_crop": "bbox"})
+    df = image_manifest(json_dir, images, bbox_filters, crops)
+    one = df[df["image_name"] == "IMG_1.JPG"].set_index("coral_id")
+    mf = load_mask_json(json_dir / "IMG_1.json")
+    raw = cv2.resize(cv2.imread(str(images / "IMG_1.JPG")), (FRAME_W, FRAME_H))
+    for coral_id in (0, 1):
+        x, y, w, h = map(int, mf.by_id()[coral_id]["bbox"])
+        box = raw[max(0, y) : y + h, max(0, x) : x + w]
+        reference = cv2.Laplacian(cv2.cvtColor(box, cv2.COLOR_BGR2GRAY), cv2.CV_64F).var()
+        assert one.loc[coral_id, "sharpness"] == pytest.approx(reference)
+    assert one.loc[0, "keep"] and not one.loc[1, "keep"]  # noise passes, the flat patch does not
+
+
+def test_masked_sharpness_responds_to_the_outline_but_bbox_sharpness_does_not(tmp_path):
+    """A flat grey photo with an elliptical mask: the black corners of the masked crop are an
+    edge, so the masked measure passes while the box of flat grey is not sharp at all."""
+    from tests.helpers import ellipse_mask
+
+    images = tmp_path / "images"
+    images.mkdir()
+    _write_photo(images / "FLAT.JPG", np.full((FRAME_H, FRAME_W, 3), 120, np.uint8))
+    mask = ellipse_mask(SHAPE, 75, 100, 40, 80)
+    json_dir = write_json_dir(
+        tmp_path / "json", [("FLAT.JPG", FRAME_W, FRAME_H, [make_annotation(mask, 0)], None)]
+    )
+    crops = CropConfig(padding_pct=0.0, min_visible=50)
+    masked = image_manifest(json_dir, images, FILTERS, crops).iloc[0]
+    bbox = image_manifest(
+        json_dir, images, FilterConfig(**{**FILTERS.__dict__, "sharpness_crop": "bbox"}), crops
+    ).iloc[0]
+    assert masked["sharpness"] > 80 and masked["keep"]
+    assert bbox["sharpness"] < 1 and not bbox["keep"] and bbox["reject_reason"] == "blurry"
+    assert masked["visible_px"] == bbox["visible_px"]  # visibility is judged the same way

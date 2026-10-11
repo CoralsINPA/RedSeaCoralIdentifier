@@ -23,6 +23,7 @@ from coralid._atomic import atomic_write_text
 DATA_ROOT_ENV = "CORALID_DATA_ROOT"
 BACKGROUNDS = ("black", "gray", "white")
 CROP_MODES = ("masked", "bbox")
+SHARPNESS_CROPS = ("masked", "bbox")
 
 
 class ConfigError(ValueError):
@@ -72,12 +73,36 @@ class SamConfig:
 
 @dataclass
 class FilterConfig:
-    """Mask quality filters (WC cell 8, V2 cell 4)."""
+    """Mask quality filters (WC cell 8, V2 cell 4).
+
+    Sharpness is the Laplacian variance of a crop, and *which* crop is a choice:
+    - `masked` (the pipeline's definition, the default): the masked crop on a black background,
+      kept if it reaches `sharpness_threshold` (80).
+    - `bbox` (the Millepora audit's definition, MA cells 5 and 9): the unmasked box of the mask,
+      without padding, kept if it reaches `sharpness_threshold_bbox` (150).
+    The default is unchanged; switching it is an algorithm decision, not a refactoring one.
+    """
 
     min_area: int = 25000
     containment_thresh: float = 0.80
     max_aspect_ratio: float = 3.0
     sharpness_threshold: float = 80.0
+    sharpness_crop: str = "masked"
+    sharpness_threshold_bbox: float = 150.0
+
+    def __post_init__(self) -> None:
+        if self.sharpness_crop not in SHARPNESS_CROPS:
+            raise ConfigError(
+                f"filters.sharpness_crop must be one of {SHARPNESS_CROPS}, "
+                f"got {self.sharpness_crop!r}"
+            )
+
+    @property
+    def sharpness_cutoff(self) -> float:
+        """The threshold that goes with `sharpness_crop`."""
+        if self.sharpness_crop == "bbox":
+            return self.sharpness_threshold_bbox
+        return self.sharpness_threshold
 
 
 @dataclass
