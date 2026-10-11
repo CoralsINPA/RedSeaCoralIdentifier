@@ -62,6 +62,8 @@ def pooled_rate(
     yes_s, n_s = sample
     if n_s == 0 and pool_size > 0:
         return None
+    if pool_size > 0 and n_s >= pool_size:  # the "sample" is the whole pool: reviewed in full
+        yes_c, n_c, yes_s, n_s, pool_size = yes_c + yes_s, n_c + n_s, 0, 0, 0
     total = n_c + pool_size
     if total == 0:
         return None

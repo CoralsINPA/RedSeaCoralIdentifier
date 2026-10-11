@@ -30,6 +30,12 @@ def test_pooled_rate_scales_the_wilson_interval_of_the_sample_to_the_pool():
     assert (out["n_sample"], out["n_census"], out["pool"]) == (10, 6, 100)
 
 
+def test_a_sample_that_is_the_whole_pool_has_no_sampling_error():
+    out = pooled_rate(census=(2, 4), sample=(3, 6), pool_size=6)  # all six pool crops reviewed
+    assert out["point"] == out["lo"] == out["hi"] == pytest.approx(5 / 10)
+    assert (out["n_census"], out["pool"]) == (10, 0)
+
+
 def test_pooled_rate_edge_cases():
     assert pooled_rate((3, 4), (0, 0), 0)["point"] == 0.75  # everything reviewed in full
     assert pooled_rate((0, 0), (1, 2), 0) is None  # nothing at all
