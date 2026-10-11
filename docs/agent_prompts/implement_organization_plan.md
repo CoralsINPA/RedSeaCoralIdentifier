@@ -247,7 +247,15 @@ If parity failed, don't start fixing. Diagnose the cause from the pasted results
 Each item below is its own commit. Each commit message and the session memory file state which numbers change, from what to what.
 
 1. **Frame audit follow-up.** Check A found **221 portrait frames (1920×2560)** besides 1,493 landscape ones. The legacy code squashed portrait photos to 2560×1920 without moving the bboxes, so their crops were wrong or dropped (`docs/agent_memory/sessions/2026-10-11_parity_run_1.md`).
-   - **Check C parity:** add a landscape-only check. The new manifest's kept keys on landscape images must equal the keys in `v2_pipeline/v2_weak_labels_expanded.csv` for those images. Report portrait images separately, as INFO.
+   - **Results of the first run are already in** (`docs/agent_memory/sessions/2026-10-11_parity_run_1.md`):
+     - Check B on landscape photos is exact: 773/773 crops, 100% top-1, max difference 9e-6.
+     - Every difference is on the 13 portrait photos in the sample.
+     - Check C kept 16,080 crops, with only 117 dropped for blur.
+   - **Make Checks B and C orientation-aware** in `parity.py` and the notebook, so a rerun reports PASS when the code is right:
+     - Check B: landscape images must match exactly (keys, top-1 ≥ 0.995, max difference ≤ 1e-3). Portrait images are INFO with their counts.
+     - Check C: the new manifest's kept keys on landscape images must equal the keys in `v2_pipeline/v2_weak_labels_expanded.csv` for those images. That file was made with the same filters, at 24 genera, but the keep decision doesn't depend on the label set. Report portrait counts as INFO, and drop the 14,224 total as a pass criterion.
+     - Check D: expectations from the real CSV (item 2).
+   - **Make the orientation split a reusable function** (frame from the manifest: `frame_w > frame_h` is landscape), so later reports can break any metric down by orientation.
    - **Portrait-impact report:** list which rows of `assaf_expert_test_set.csv` and of `v2_pipeline/millepora_sharp_audit.csv` come from portrait images, and how many of the expert "unidentifiable" rows are among them.
 2. **Expert status from `is_correct`.** When `expert_genus` is empty, derive the status from `is_correct`: `unidentifiable`, or `MISSING_LABEL` → `missing`. Today all 18 such rows become `missing`. Update the Check D expectations to the real CSV: 77 rows, 54 in-set, 5 soft corals, 36 correct, and the unidentifiable / missing split once confirmed. Keep the memory matrix only as a reference.
 3. **One sharpness definition.**
