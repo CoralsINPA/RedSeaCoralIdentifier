@@ -14,7 +14,7 @@ def test_import_stays_light():
     code = (
         "import sys, coralid; "
         "import coralid.config, coralid.masks, coralid.images, coralid.crops, "
-        "coralid.filters, coralid.manifest; "
+        "coralid.filters, coralid.manifest, coralid.genera; "
         "heavy = {'torch', 'torchvision', 'open_clip', 'transformers', 'umap', 'hdbscan', "
         "'sklearn', 'matplotlib'}; "
         "loaded = heavy & set(sys.modules); "

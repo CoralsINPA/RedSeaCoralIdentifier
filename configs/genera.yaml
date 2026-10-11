@@ -1,0 +1,171 @@
+# Label sets and prompt sets for zero-shot classification.
+#
+# Everything under `prompt_sets` is copied character for character from the legacy notebooks
+# (notebooks/legacy/). Do not "fix" a prompt here: a changed prompt changes the predictions.
+# New wording belongs in a new, versioned prompt set (for example taxonomy_v3).
+#
+# Order matters. The genus order of a label set is the column order of every prediction table
+# and decides ties (the first genus in this order wins).
+#
+# `kind` says which prompt format uses a set: taxonomy, descriptive, common or hybrid.
+# `incomplete: true` marks a set that lacks prompts for some genera of the label set it was
+# written for. Using it with a label set it does not cover raises an error.
+
+label_sets:
+  hard20:
+    description: "The 20 hard-coral genera of the final label set (decided 2026-10-11)."
+    genera:
+      - Platygyra
+      - Acropora
+      - Stylophora
+      - Millepora
+      - Favites
+      - Dipsastraea
+      - Favia
+      - Echinopora
+      - Hydnophora
+      - Porites
+      - Acanthastrea
+      - Cyphastrea
+      - Goniastrea
+      - Seriatopora
+      - Pocillopora
+      - Montipora
+      - Leptastrea
+      - Galaxea
+      - Lobophyllia
+      - Pavona
+
+# The 4 soft corals of the V2 pipeline are not a label set. They are listed so that expert labels
+# and legacy V2 tables can be recognised as "known, but outside the label set".
+soft_genera:
+  - Cladiella
+  - Sinularia
+  - Litophyton
+  - Sarcophyton
+
+prompt_sets:
+  taxonomy_v1:
+    kind: taxonomy
+    source: "weak_classification.ipynb cell 14, genera_taxonomy"
+    prompts:
+      Platygyra: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Platygyra"
+      Acropora: "Animalia Cnidaria Anthozoa Scleractinia Acroporidae Acropora"
+      Stylophora: "Animalia Cnidaria Anthozoa Scleractinia Pocilloporidae Stylophora"
+      Millepora: "Animalia Cnidaria Hydrozoa Anthoathecata Milleporidae Millepora"
+      Favites: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Favites"
+      Dipsastraea: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Dipsastraea"
+      Favia: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Favia"
+      Echinopora: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Echinopora"
+      Hydnophora: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Hydnophora"
+      Porites: "Animalia Cnidaria Anthozoa Scleractinia Poritidae Porites"
+      Acanthastrea: "Animalia Cnidaria Anthozoa Scleractinia Lobophylliidae Acanthastrea"
+      Cyphastrea: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Cyphastrea"
+      Goniastrea: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Goniastrea"
+      Seriatopora: "Animalia Cnidaria Anthozoa Scleractinia Pocilloporidae Seriatopora"
+      Pocillopora: "Animalia Cnidaria Anthozoa Scleractinia Pocilloporidae Pocillopora"
+      Montipora: "Animalia Cnidaria Anthozoa Scleractinia Acroporidae Montipora"
+      Leptastrea: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Leptastrea"
+      Galaxea: "Animalia Cnidaria Anthozoa Scleractinia Euphylliidae Galaxea"
+      Lobophyllia: "Animalia Cnidaria Anthozoa Scleractinia Lobophylliidae Lobophyllia"
+      Pavona: "Animalia Cnidaria Anthozoa Scleractinia Agariciidae Pavona"
+
+  descriptive:
+    kind: descriptive
+    source: "weak_classification.ipynb cell 14, genera_descriptive"
+    prompts:
+      Platygyra: "underwater photo of Platygyra brain coral with maze-like ridges and valleys"
+      Acropora: "underwater photo of Acropora coral with branching or tabulate form and a single large corallite at each branch tip"
+      Stylophora: "underwater photo of Stylophora coral with club-shaped lumpy compact branches"
+      Millepora: "underwater photo of Millepora fire coral with smooth surface and tiny pores forming upright blade-like plates or branching columns without visible corallites"
+      Favites: "underwater photo of Favites coral with honeycomb pattern of angular corallites with shared walls between adjacent polyps"
+      Dipsastraea: "underwater photo of Dipsastraea coral with rounded separate polyp mounds"
+      Favia: "underwater photo of Favia coral with rounded clearly separated corallites"
+      Echinopora: "underwater photo of Echinopora coral with thin delicate plating sheets or irregular branching with small projecting corallites"
+      Hydnophora: "underwater photo of Hydnophora coral with distinctive sharp pointed monticules projecting from surface"
+      Porites: "underwater photo of Porites coral with very fine small porous uniform texture on massive or branching colony"
+      Acanthastrea: "underwater photo of Acanthastrea coral with large fleshy colorful separate polyps"
+      Cyphastrea: "underwater photo of Cyphastrea coral with very small corallites embedded in smooth encrusting surface"
+      Goniastrea: "underwater photo of Goniastrea coral with meandering brain-like valleys or tightly packed rounded corallites on encrusting surface"
+      Seriatopora: "underwater photo of Seriatopora coral with very thin needle-like delicate branches and pointed tips"
+      Pocillopora: "underwater photo of Pocillopora coral with cauliflower-like warty compact branches"
+      Montipora: "underwater photo of Montipora coral with thin smooth encrusting plating sheets or thin finger-like branches with very small corallites"
+      Leptastrea: "underwater photo of Leptastrea coral with small tightly packed encrusting corallites"
+      Galaxea: "underwater photo of Galaxea coral with long separate tubular corallites and star-shaped polyps with bright white tips"
+      Lobophyllia: "underwater photo of Lobophyllia coral with large fleshy lobed polyps"
+      Pavona: "underwater photo of Pavona coral with thin leaf-like or vertical plates and fine surface texture"
+
+  common:
+    kind: common
+    source: "weak_classification.ipynb cell 14, genera_common"
+    prompts:
+      Platygyra: "brain coral Platygyra"
+      Acropora: "staghorn coral Acropora"
+      Stylophora: "club finger coral Stylophora"
+      Millepora: "fire coral Millepora"
+      Favites: "moon coral Favites"
+      Dipsastraea: "pineapple coral Dipsastraea"
+      Favia: "star coral Favia"
+      Echinopora: "chalice coral Echinopora"
+      Hydnophora: "velvet horn coral Hydnophora"
+      Porites: "boulder coral Porites"
+      Acanthastrea: "button coral Acanthastrea"
+      Cyphastrea: "encrusting pore coral Cyphastrea"
+      Goniastrea: "wall brain coral Goniastrea"
+      Seriatopora: "bird nest coral Seriatopora"
+      Pocillopora: "cauliflower coral Pocillopora"
+      Montipora: "velvet plate coral Montipora"
+      Leptastrea: "dwarf cup coral Leptastrea"
+      Galaxea: "galaxy coral Galaxea"
+      Lobophyllia: "lobed brain coral Lobophyllia"
+      Pavona: "cactus coral Pavona"
+
+  taxonomy_v2:
+    kind: taxonomy
+    source: "CoralClassification_v2_Pipeline.ipynb cell 9, genera_taxonomy (the 20 hard genera)"
+    prompts:
+      Platygyra: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Platygyra"
+      Acropora: "Animalia Cnidaria Anthozoa Scleractinia Acroporidae Acropora"
+      Stylophora: "Animalia Cnidaria Anthozoa Scleractinia Pocilloporidae Stylophora"
+      Millepora: "Animalia Cnidaria Hydrozoa Anthoathecata Milleporidae Millepora"
+      Favites: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Favites"
+      Dipsastraea: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Dipsastraea"
+      Favia: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Favia"
+      Echinopora: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Echinopora"
+      Hydnophora: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Hydnophora"
+      Porites: "Animalia Cnidaria Anthozoa Scleractinia Poritidae Porites"
+      Acanthastrea: "Animalia Cnidaria Anthozoa Scleractinia Lobophylliidae Acanthastrea"
+      Cyphastrea: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Cyphastrea"
+      Goniastrea: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Goniastrea"
+      Seriatopora: "Animalia Cnidaria Anthozoa Scleractinia Pocilloporidae Seriatopora"
+      Pocillopora: "Animalia Cnidaria Anthozoa Scleractinia Pocilloporidae Pocillopora"
+      Montipora: "Animalia Cnidaria Anthozoa Scleractinia Acroporidae Montipora"
+      Leptastrea: "Animalia Cnidaria Anthozoa Scleractinia Incertae Leptastrea"
+      Galaxea: "Animalia Cnidaria Anthozoa Scleractinia Euphylliidae Galaxea"
+      Lobophyllia: "Animalia Cnidaria Anthozoa Scleractinia Lobophylliidae Lobophyllia"
+      Pavona: "Animalia Cnidaria Anthozoa Scleractinia Agariciidae Pavona"
+
+  soft4_taxonomy:
+    kind: taxonomy
+    source: "CoralClassification_v2_Pipeline.ipynb cell 9, genera_taxonomy (the 4 soft corals; stored, unused)"
+    prompts:
+      Cladiella: "Animalia Cnidaria Anthozoa Alcyonacea Alcyoniidae Cladiella"
+      Sinularia: "Animalia Cnidaria Anthozoa Alcyonacea Alcyoniidae Sinularia"
+      Litophyton: "Animalia Cnidaria Anthozoa Alcyonacea Nephtheidae Litophyton"
+      Sarcophyton: "Animalia Cnidaria Anthozoa Alcyonacea Alcyoniidae Sarcophyton"
+
+  hybrid:
+    kind: hybrid
+    source: "weak_classification.ipynb cell 14, genera_hybrid (10 of 20 genera)"
+    incomplete: true
+    prompts:
+      Platygyra: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Platygyra brain coral with maze-like ridges and valleys"
+      Acropora: "Animalia Cnidaria Anthozoa Scleractinia Acroporidae Acropora"
+      Stylophora: "Animalia Cnidaria Anthozoa Scleractinia Pocilloporidae Stylophora"
+      Millepora: "Animalia Cnidaria Hydrozoa Anthoathecata Milleporidae Millepora"
+      Favites: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Favites"
+      Dipsastraea: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Dipsastraea"
+      Favia: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Favia"
+      Echinopora: "Animalia Cnidaria Anthozoa Scleractinia Faviidae Echinopora"
+      Hydnophora: "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Hydnophora"
+      Porites: "Animalia Cnidaria Anthozoa Scleractinia Poritidae Porites"
