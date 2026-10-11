@@ -39,6 +39,8 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
 ## Agent memory
 `docs/agent_memory/` holds project history, expert-review results and conclusions from earlier sessions. Read its `README.md` before analysis or planning work. At the end of a session, add `sessions/YYYY-MM-DD_<topic>.md` and update "Current understanding" there. The repo is public, so don't put anything private in it.
 
+Algorithm ideas (evidence, cost and priority for each) are collected in `docs/algorithm_ideas.md`. Start algorithm planning there.
+
 ## Not in the repo
 Images, mask JSONs, embeddings, label CSVs, the CoralSCOP checkpoint, `ground_truth_genus_counts.csv` and the expert test set live in a shared Google Drive. Use the Google Drive MCP tools if connected (search by `parentId`), otherwise ask the user for any file you need.
 
@@ -61,6 +63,12 @@ Folder IDs below are for `parentId = '...'` queries.
 
 Relevant:
 - Active run `results_all/iou60_sta55_pts32` (id `1up9-VQJEPyv5p8YbPCPgmO5yVx-SCz3r`). Contains `json/`, `cleaned_images_crops/`, `cluster_previews/`, `visualizations/` (subfolder contents not inspected), `coral_dinoV2_encodings.csv` (181 MB), `coral_dinoV2_encodings_MASKS.csv` (489 MB), and `v2_pipeline/`.
+  - **Don't use the DINO CSVs.** Their provenance is unclear:
+    - `coral_dinoV2_encodings.csv` is most likely the bbox-crop file, cut from the wrong part of each photo;
+    - `coral_dinoV2_encodings_MASKS.csv` and `coral_dinoV3_encodings_MASKS.csv` have exactly the same size (489,150,549 bytes), probably copies;
+    - `coral_dinoV3_encodings.csv` (1024-d) was made by a notebook not in the repo.
+    
+    They're kept on Drive but nothing uses them; regenerate features with `coralid` if needed.
 - `assaf_expert_test_set.csv` (id `1PIBGXIduvOnRn3lvsTT2ZyFtjKiUVRRD`), in the active run folder. Columns: `image_name, coral_id, bbox, area`, 20 genus probabilities, `predicted_genus, confidence, expert_genus, is_correct, review_source`. `expert_genus` can be a soft coral (Cladiella, Sinularia, Litophyton) that is outside the 20 target genera. For crops with no genus it is empty and `is_correct` holds the word `unidentifiable` or `MISSING_LABEL` (`load_expert_set` reads it from there). Exclude these when computing accuracy.
 - `ground_truth_genus_counts.csv` (id `1DbQaZa-3lTehQPP-7PmjAkiCkbvuadwd`), in the root. Columns: `Category, genus, count, Pi`. It includes soft corals and genera outside the 20 targets, so filter to the 20 before comparing.
 - `coral_weak_labels_finetuned-bioclip_taxonomy_masked_best.csv` (id `1oB15CLt1FEQfbp4Xai1xlWs-hsiJRYqC`): zero-shot labels for the **50-densest-image sample** (842 crops). "best" is the sample mode (`SAMPLE_MODE = "best"`), not the best configuration.

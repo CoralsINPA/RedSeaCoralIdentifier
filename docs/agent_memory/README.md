@@ -75,7 +75,7 @@ Last updated 2026-10-11.
 - **The new image manifest keeps 16,080 crops** (legacy 14,224). Only 117 were dropped for blur, so the blur filter is nearly inactive on masked crops.
 - See `sessions/2026-10-11_parity_run_1.md`.
 - **The expert CSV is the reference:** 77 rows, **36/54 = 66.7%** in-set. The memory matrix (39/57) is a slightly different version of the same review.
-- Then the algorithm plan.
+- Then the algorithm plan. **All ideas so far are collected in `docs/algorithm_ideas.md`.** It covers blur filtering (a priority: most of Assaf's unidentifiable crops were blurred), a bigger blind expert set, a reject option, the linear probe, calibration, taxonomy, resolution and segmentation.
 
 **Constraints**
 - The repo is **public**, so nothing private goes in this folder.
