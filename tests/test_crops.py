@@ -216,3 +216,19 @@ def test_masked_square_crop_matches_the_legacy_function_on_random_inputs():
             assert ours is None
         else:
             np.testing.assert_array_equal(ours, ref)
+
+
+def test_sam_bbox_excludes_the_last_row_and_column_of_the_mask():
+    """SAM writes `w = right - left` (indices are inclusive), so its bbox is one pixel short.
+
+    Without padding the legacy crops lose the last row and column of the mask; the default
+    5% padding gives that pixel back for any coral wider than 20 px. Reproduced, not fixed.
+    """
+    img = _photo()
+    mask = rect_mask((100, 120), 20, 60, 40, 100)  # 40 rows x 60 columns
+    sam_bbox = [40, 20, 59, 39]  # x, y, right - left, bottom - top
+    rle = encode_mask(mask)
+    assert masked_crop_stats(img, sam_bbox, rle, padding_pct=0.0)[1] == 39 * 59
+    assert masked_crop_stats(img, sam_bbox, rle, padding_pct=0.05)[1] == 40 * 60
+    square = masked_square_crop(img, sam_bbox, rle)
+    assert square.shape == (59, 59, 3)  # 39 x 59 content, padded to a square

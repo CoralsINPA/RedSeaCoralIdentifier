@@ -146,9 +146,11 @@ def image_setup(tmp_path):
     return json_dir, images, crops
 
 
-def test_image_manifest_decisions(image_setup):
+def test_image_manifest_decisions(image_setup, caplog):
     json_dir, images, crops = image_setup
-    df = image_manifest(json_dir, images, FILTERS, crops)
+    with caplog.at_level("WARNING", logger="coralid.manifest"):
+        df = image_manifest(json_dir, images, FILTERS, crops)
+    assert sum("image_missing" in r.getMessage() for r in caplog.records) == 2
     assert list(df.columns) == IMAGE_COLUMNS
     assert len(df) == 4 + 1 + 1
     one = df[df["image_name"] == "IMG_1.JPG"].set_index("coral_id")

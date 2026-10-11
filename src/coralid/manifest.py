@@ -11,6 +11,7 @@ Every downstream step should read `keep == True` from the manifest instead of re
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -30,6 +31,8 @@ from coralid.masks import (
     load_mask_json,
     parse_bbox,
 )
+
+logger = logging.getLogger(__name__)
 
 REASON_IMAGE_MISSING = "image_missing"
 REASON_NOT_VISIBLE = "not_visible"
@@ -109,7 +112,8 @@ def image_rows(
         return rows
     try:
         img = load_in_mask_frame(Path(images_dir) / mask_file.image_name, *mask_file.frame)
-    except ImageReadError:
+    except ImageReadError as err:
+        logger.warning("%s; %d mask(s) marked %s", err, len(survivors), REASON_IMAGE_MISSING)
         for row in survivors:
             row["reject_reason"] = REASON_IMAGE_MISSING
         return rows

@@ -10,10 +10,13 @@ def test_version_is_a_string():
 
 
 def test_import_stays_light():
-    """`import coralid` must not pull in the heavy ML dependencies."""
+    """Importing the package and its modules must not pull in the heavy ML dependencies."""
     code = (
         "import sys, coralid; "
-        "heavy = {'torch', 'open_clip', 'transformers', 'umap', 'hdbscan', 'sklearn'}; "
+        "import coralid.config, coralid.masks, coralid.images, coralid.crops, "
+        "coralid.filters, coralid.manifest; "
+        "heavy = {'torch', 'torchvision', 'open_clip', 'transformers', 'umap', 'hdbscan', "
+        "'sklearn', 'matplotlib'}; "
         "loaded = heavy & set(sys.modules); "
         "assert not loaded, loaded"
     )
