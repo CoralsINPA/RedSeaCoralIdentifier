@@ -4,19 +4,27 @@ The notebook only runs things and prints. Every decision lives here, where it is
 each `check_*` function turns measured numbers into a list of `CheckResult` rows for checks
 A (geometric), B (zero-shot parity), C (image manifest) and D (expert set). Folding the rows
 into a summary and saving it is in `coralid.parity_report`.
+
+This module holds the row type, Check A and Check B. Check C is in `coralid.parity_manifest`
+and Check D in `coralid.parity_expert`.
+
+Checks B and C are orientation-aware. The legacy code squashed the 221 portrait photos
+(1920x2560 frames) to 2560x1920 without moving the boxes, so its crops on them were wrong. The
+refactor is correct there and the legacy output is not, so only landscape photos are held to
+parity (exact match required); portrait photos are reported as information.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
 
-from coralid.evaluation import EvaluationReport
 from coralid.masks import JsonAudit
-from coralid.predictions import PredictionComparison
+from coralid.orientation import LANDSCAPE, PORTRAIT, split_by_orientation
+from coralid.predictions import PredictionComparison, compare_predictions
 
 PASS, FAIL, INFO, NOT_RUN = "PASS", "FAIL", "INFO", "NOT RUN"
 
@@ -28,7 +36,8 @@ EXPECTED = {
     "kept": 14224,
     "files_without_survivors": 4,
     "mean_survivors_per_file": 9.4,
-    "frame": "2560x1920",
+    "frame_sizes": {"2560x1920": 1493, "1920x2560": 221},  # landscape, portrait (2026-10-11)
+    "kept_recorded": 16080,  # Check C on 2026-10-11 (the legacy V2 count was 14,224)
     "sample_masks": 2337,
     "sample_after_filter": 1054,
     "sample_crops": 842,
@@ -65,19 +74,19 @@ def info(check: str, name: str, actual: Any, expected: Any = None, detail: str =
 
 def check_json_audit(audit: JsonAudit, expected: Mapping[str, Any] = EXPECTED) -> list[CheckResult]:
     """Check A, part 1: file and mask counts, frames, failed images."""
-    off_frame = {k: n for k, n in audit.as_dict()["frame_sizes"].items() if k != expected["frame"]}
+    sizes = audit.as_dict()["frame_sizes"]
+    portrait = sum(n for k, n in sizes.items() if int(k.split("x")[0]) < int(k.split("x")[1]))
+    landscape = sum(n for k, n in sizes.items() if int(k.split("x")[0]) > int(k.split("x")[1]))
     return [
         equal("A", "A1 mask JSON files", audit.n_files, expected["n_json_files"]),
         equal("A", "A2 masks in total", audit.n_masks, expected["n_masks"]),
         equal("A", "A3 unreadable JSONs", len(audit.unreadable), 0, str(audit.unreadable[:3])),
-        info(
+        equal(
             "A",
-            "A4 frame sizes",
-            audit.as_dict()["frame_sizes"],
-            expected["frame"],
-            f"{sum(off_frame.values())} file(s) not {expected['frame']}"
-            if off_frame
-            else "all as expected",
+            "A4 frame sizes (files per width x height)",
+            sizes,
+            dict(expected["frame_sizes"]),
+            f"{landscape} landscape, {portrait} portrait photos",
         ),
         info(
             "A",
@@ -137,49 +146,129 @@ def manifest_counts(manifest: pd.DataFrame) -> dict[str, int]:
     }
 
 
-def check_sample_counts(
-    legacy: Mapping[str, int], new: Mapping[str, int], expected: Mapping[str, Any] = EXPECTED
-) -> list[CheckResult]:
-    """Check B, counts: masks before / after the filter and crops, for both implementations.
+def counts_by_orientation(table: pd.DataFrame, frames: pd.DataFrame) -> dict[str, int]:
+    """Rows of `table` (one per crop) on landscape and on portrait photos."""
+    return {name: len(part) for name, part in split_by_orientation(table, frames).items()}
 
-    B1 (required) compares coralid with the legacy code run live. B2 compares that live run
-    with the numbers recorded in 2026-10: PASS when they match, INFO (never FAIL) when the
-    Drive data has changed since.
+
+def compare_by_orientation(
+    legacy: pd.DataFrame, new: pd.DataFrame, frames: pd.DataFrame
+) -> dict[str, PredictionComparison]:
+    """`compare_predictions(legacy, new)` on the landscape photos and on the portrait photos.
+
+    `frames` (the manifest of the sample) says which photo is which. Both tables are split by
+    the same frames, so a crop that only one side has still lands in its photo's group.
+    """
+    legacy_parts = split_by_orientation(legacy, frames)
+    new_parts = split_by_orientation(new, frames)
+    return {
+        name: compare_predictions(legacy_parts[name], new_parts[name])
+        for name in (LANDSCAPE, PORTRAIT)
+    }
+
+
+def check_sample_counts(
+    legacy: Mapping[str, int],
+    new: Mapping[str, int],
+    legacy_crops: Mapping[str, int],
+    new_crops: Mapping[str, int],
+    expected: Mapping[str, Any] = EXPECTED,
+) -> list[CheckResult]:
+    """Check B, counts: masks before / after the filter, and crops per orientation.
+
+    `legacy` and `new` hold `masks`, `after_filter` and `crops` for the whole sample;
+    `legacy_crops` and `new_crops` hold the crops per orientation. B1 and B2 compare coralid
+    with the legacy code run live: the filters are blind to orientation, so B1 covers all
+    photos, while crops are compared on landscape photos only (B2). B3 compares that live run
+    with the numbers recorded in 2026-10: PASS when they match, INFO (never FAIL) when the Drive
+    data has changed since. B4 reports the portrait crops, where the legacy count is wrong.
     """
     keys = ("masks", "after_filter", "crops")
     recorded = [expected["sample_masks"], expected["sample_after_filter"], expected["sample_crops"]]
-    new_counts, legacy_counts = [new[k] for k in keys], [legacy[k] for k in keys]
+    legacy_counts = [legacy[k] for k in keys]
     differs = "" if legacy_counts == recorded else "the Drive data may have changed since 2026-10"
     return [
         equal(
             "B",
-            "B1 masks / after filter / crops: coralid = live legacy run",
-            new_counts,
-            legacy_counts,
+            "B1 masks / after filter: coralid = live legacy run (all photos)",
+            [new["masks"], new["after_filter"]],
+            [legacy["masks"], legacy["after_filter"]],
+        ),
+        equal(
+            "B",
+            "B2 crops kept on landscape photos: coralid = live legacy run",
+            new_crops.get(LANDSCAPE, 0),
+            legacy_crops.get(LANDSCAPE, 0),
         ),
         CheckResult(
             "B",
-            "B2 live legacy run reproduces the recorded numbers",
+            "B3 live legacy run reproduces the recorded numbers",
             PASS if legacy_counts == recorded else INFO,  # a difference is data drift, not a bug
             recorded,
             legacy_counts,
             differs,
         ),
+        info(
+            "B",
+            "B4 crops kept on portrait photos: legacy vs coralid",
+            [legacy_crops.get(PORTRAIT, 0), new_crops.get(PORTRAIT, 0)],
+            detail="informational: the legacy code cut the wrong region on portrait photos",
+        ),
     ]
 
 
 def check_zero_shot_parity(
-    comparison: PredictionComparison,
+    comparisons: Mapping[str, PredictionComparison],
     min_agreement: float = EXPECTED["min_top1_agreement"],
     max_abs_diff: float = EXPECTED["max_abs_diff"],
+    portrait_images: int | None = None,
 ) -> list[CheckResult]:
-    """Check B, parity: identical keys, top-1 agreement and probability difference."""
-    c = comparison
+    """Check B, parity: landscape photos must match exactly; portrait photos are information.
+
+    `comparisons` is `{orientation: PredictionComparison}` from `compare_by_orientation`
+    (a = legacy, b = coralid). On landscape photos: identical `(image_name, coral_id)` keys
+    (B5), top-1 agreement of at least `min_agreement` (B6) and a maximum absolute probability
+    difference of at most `max_abs_diff` (B7). The portrait row (B8) never fails.
+    """
+    results = _landscape_parity(comparisons.get(LANDSCAPE), min_agreement, max_abs_diff)
+    p = comparisons.get(PORTRAIT)
+    if p is not None:
+        results.append(
+            info(
+                "B",
+                "B8 portrait photos: legacy vs coralid",
+                {
+                    "images": portrait_images,
+                    "crops_legacy_coralid": [p.n_a, p.n_b],
+                    "only_legacy": p.only_in_a,
+                    "only_coralid": p.only_in_b,
+                    "top1": p.top1_agreement,
+                    "max_abs_diff": p.max_abs_diff,
+                },
+                detail="informational: the legacy crops on portrait photos were mis-cut",
+            )
+        )
+    return results
+
+
+def _landscape_parity(
+    c: PredictionComparison | None, min_agreement: float, max_abs_diff: float
+) -> list[CheckResult]:
+    if c is None or c.n_a + c.n_b == 0:
+        why = "no landscape photo in the sample"
+        return [
+            CheckResult("B", name, NOT_RUN, detail=why)
+            for name in (
+                "B5 identical (image_name, coral_id) keys on landscape photos",
+                "B6 top-1 agreement on landscape photos",
+                "B7 max absolute probability difference on landscape photos",
+            )
+        ]
     agreement, diff = c.top1_agreement, c.max_abs_diff
     return [
         CheckResult(
             "B",
-            "B3 identical (image_name, coral_id) keys",
+            "B5 identical (image_name, coral_id) keys on landscape photos",
             PASS if c.keys_equal else FAIL,
             "legacy rows == coralid rows",
             f"{c.n_a} vs {c.n_b} rows; only legacy {c.only_in_a}, only coralid {c.only_in_b}",
@@ -187,7 +276,7 @@ def check_zero_shot_parity(
         ),
         CheckResult(
             "B",
-            "B4 top-1 agreement",
+            "B6 top-1 agreement on landscape photos",
             PASS if agreement is not None and agreement >= min_agreement else FAIL,
             f">= {min_agreement}",
             agreement,
@@ -195,7 +284,7 @@ def check_zero_shot_parity(
         ),
         CheckResult(
             "B",
-            "B5 max absolute probability difference",
+            "B7 max absolute probability difference on landscape photos",
             PASS if diff is not None and diff <= max_abs_diff else FAIL,
             f"<= {max_abs_diff}",
             diff,
@@ -210,7 +299,7 @@ def check_against_drive_csv(comparison: PredictionComparison) -> list[CheckResul
     return [
         info(
             "B",
-            "B6 coralid vs Drive coral_weak_labels_..._best.csv (rewritten 2026-10-11)",
+            "B9 coralid vs Drive coral_weak_labels_..._best.csv (rewritten 2026-10-11)",
             {
                 "rows_coralid_drive": [c.n_a, c.n_b],
                 "keys_equal": c.keys_equal,
@@ -220,79 +309,3 @@ def check_against_drive_csv(comparison: PredictionComparison) -> list[CheckResul
             detail="informational: a mismatch here is not a failure",
         )
     ]
-
-
-# --------------------------------------------------------------------------- C
-
-
-def check_image_manifest(
-    manifest: pd.DataFrame,
-    unresolved_failures: Sequence[Mapping[str, Any]] = (),
-    expected: Mapping[str, Any] = EXPECTED,
-) -> list[CheckResult]:
-    """Check C: the manifest is complete and keeps 14,224 masks."""
-    reasons = manifest["reject_reason"].value_counts().to_dict()
-    missing = manifest.loc[manifest["reject_reason"] == "image_missing", "image_name"].nunique()
-    return [
-        equal("C", "C1 masks in the manifest", len(manifest), expected["n_masks"]),
-        equal("C", "C2 images that failed and are still unresolved", len(unresolved_failures), 0),
-        equal("C", "C3 masks kept", int(manifest["keep"].sum()), expected["kept"]),
-        info("C", "C4 rejected per reason", reasons),
-        info("C", "C5 images missing or unreadable", int(missing)),
-    ]
-
-
-# --------------------------------------------------------------------------- D
-
-
-def check_expert_confusion(
-    report: EvaluationReport,
-    expected_cells: Mapping[str, Mapping[str, int]],
-    expected_status: Mapping[str, int],
-    expected_correct: tuple[int, int, int],
-) -> list[CheckResult]:
-    """Check D: counts, accuracy and every confusion cell against the authoritative matrix.
-
-    `expected_cells` is `{true: {predicted: count}}`; `expected_correct` is
-    `(correct, in_set total, in_set + out_of_set total)`.
-    """
-    expected_pairs = {(t, p): n for t, row in expected_cells.items() for p, n in row.items()}
-    actual_pairs = report.confusion_cells()
-    results = [
-        equal(
-            "D",
-            "D1 expert rows with a prediction",
-            report.coverage["n_joined"],
-            sum(expected_status.values()),
-        ),
-        equal("D", "D2 rows per status", report.status_counts_joined, dict(expected_status)),
-        equal(
-            "D",
-            "D3 correct / in-set / in-set + out-of-set",
-            [
-                report.accuracy_in_set["correct"],
-                report.accuracy_in_set["total"],
-                report.accuracy_in_plus_out["total"],
-            ],
-            list(expected_correct),
-        ),
-    ]
-    cells = sorted(set(expected_pairs) | set(actual_pairs))
-    wrong = 0
-    for true, predicted in cells:
-        want, got = expected_pairs.get((true, predicted), 0), actual_pairs.get((true, predicted), 0)
-        wrong += want != got
-        cell = equal("D", f"cell {true} -> {predicted}", got, want)
-        cell.kind = "cell"
-        results.append(cell)
-    results.insert(
-        3,
-        equal(
-            "D",
-            f"D4 confusion matrix cells equal ({len(cells)} compared)",
-            wrong,
-            0,
-            f"{wrong} differ",
-        ),
-    )
-    return results

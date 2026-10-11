@@ -33,13 +33,14 @@ def normalize_keys(df: pd.DataFrame) -> pd.DataFrame:
     if missing:
         raise ValueError(f"missing column(s) {sorted(missing)}")
     out = df.copy()
-    out["image_name"] = out["image_name"].astype(str).str.strip()
+    # object dtype: an empty arrow-backed string column cannot be merged (pandas 3 + pyarrow)
+    out["image_name"] = out["image_name"].astype(str).str.strip().astype(object)
     out["coral_id"] = [as_int(v) for v in out["coral_id"]]
     return out
 
 
 def _uid(df: pd.DataFrame) -> pd.Series:
-    return df["image_name"] + "#" + df["coral_id"].astype(str)
+    return df["image_name"].astype(str) + "#" + df["coral_id"].astype(str)
 
 
 # --------------------------------------------------------------------------- legacy adapter

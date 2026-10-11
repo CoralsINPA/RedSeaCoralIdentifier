@@ -13,10 +13,12 @@ from typing import Any
 from coralid.config import git_commit
 from coralid.parity import FAIL, INFO, NOT_RUN, PASS, CheckResult
 
+PARTIAL = "PARTIAL"
+
 CHECKS = {
     "A": "geometric filters on all mask JSONs",
-    "B": "zero-shot parity with the legacy code on the 50-image sample",
-    "C": "image manifest on all images",
+    "B": "zero-shot parity with the legacy code on the 50-image sample (landscape photos)",
+    "C": "image manifest on all images (landscape photos against V2)",
     "D": "predictions stored in the expert set against its expert labels",
 }
 
@@ -25,7 +27,10 @@ CHECKS = {
 
 
 def summarize(results: Sequence[CheckResult]) -> dict[str, Any]:
-    """Fold rows into per-check statuses: FAIL if any row fails, PASS if some pass, else INFO."""
+    """Fold rows into per-check statuses.
+
+    FAIL if any row fails; PARTIAL if some row was NOT RUN; PASS if some pass; else INFO.
+    """
     checks: dict[str, Any] = {}
     for letter, title in CHECKS.items():
         rows = [r for r in results if r.check == letter]
@@ -33,6 +38,8 @@ def summarize(results: Sequence[CheckResult]) -> dict[str, Any]:
             status = NOT_RUN
         elif any(r.status == FAIL for r in rows):
             status = FAIL
+        elif any(r.status == NOT_RUN for r in rows):
+            status = PARTIAL
         elif any(r.status == PASS for r in rows):
             status = PASS
         else:
@@ -43,8 +50,8 @@ def summarize(results: Sequence[CheckResult]) -> dict[str, Any]:
         overall = FAIL
     elif all(s == NOT_RUN for s in statuses):
         overall = NOT_RUN
-    elif NOT_RUN in statuses:
-        overall = "PARTIAL"
+    elif NOT_RUN in statuses or PARTIAL in statuses:
+        overall = PARTIAL
     else:
         overall = PASS
     return {"overall": overall, "checks": checks}
