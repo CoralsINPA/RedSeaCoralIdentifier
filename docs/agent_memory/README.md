@@ -6,6 +6,7 @@ This folder holds project memory and conclusions that should outlive a single ag
 
 1. **Current understanding** (below): the short version, updated every session.
 2. `sessions/`, newest first: what each session did, verified and concluded.
+   - `sessions/2026-10-11_stage_A1.md`: Stage A1 of the refactor (packaging, tooling, core data modules), what was verified, and the bugs found but not fixed.
    - `sessions/2026-10-11_code_review_and_org_plan.md`: full code read, organization plan, user decisions.
 3. The snapshots, for background:
 
@@ -44,11 +45,12 @@ Last updated 2026-10-11.
 - **Taxonomy drift.** Most Indo-Pacific *Favia* were moved to *Dipsastraea*, yet `ground_truth_genus_counts.csv` lists both, so the survey itself mixes old and new names.
 
 **Code**
-- **State:** notebooks only. A refactor is planned (`docs/organization_plan.md`) but not started.
+- **State (2026-10-11):** Stage A1 of the refactor is done. The `coralid` package exists (`src/coralid/`: `config`, `masks`, `images`, `crops`, `filters`, `manifest`) with 117 CPU tests, CI, ruff and pre-commit. The legacy notebooks and V2 are frozen in `notebooks/legacy/`. It reproduces the legacy behavior exactly (checked against verbatim copies of the notebook code), and containment now runs on the RLE. Nothing has been run on real data yet: that is the Stage A2 parity check in Colab.
+- **Found, not fixed:** SAM's bbox is one pixel short (`w = right - left`), a black photo pixel inside a mask counts as not visible, and the V2 notebook carries Colab account metadata (see `sessions/2026-10-11_stage_A1.md`).
 - **Outputs not to trust:** `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 features. All three cut crops from the wrong part of the photo.
 
 **Next**
-- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`.
+- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1 is done; A2 is next** (zero-shot path, evaluation, batch runner, parity notebook), and it needs the user to run the parity notebook in Colab.
 - Stage B's 20-genus run on all images is the **new baseline**.
 - Don't expect the refactor alone to raise accuracy much: the bugs were mostly in side outputs, not in the zero-shot path.
 - Then the algorithm plan.
