@@ -18,6 +18,19 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
 ## Not in the repo
 Images, mask JSONs, embeddings, label CSVs, the CoralSCOP checkpoint, `ground_truth_genus_counts.csv` and the expert test set live in a shared Google Drive. Use the Google Drive MCP tools if connected (search by `parentId`), otherwise ask the user for any file you need.
 
+## Accessing code and data
+Code:
+1. The three notebooks are in `notebooks/`. Read them there first. `third_party/CoralSCOP` needs `git submodule update --init` if it is empty.
+2. The working copies run in Colab on the Drive (links under "Drive map"). They can be newer than the repo, so compare modified times before trusting a repo copy. If a notebook, helper or cell is missing from the repo, fetch the Colab file from Drive.
+3. Don't open the Colab links with WebFetch; they need a login. Use the Drive tools instead.
+
+Data and other files not in the repo:
+1. Look up the ID in the "Drive map" below. If it isn't listed, search with `mcp__Google_Drive__search_files` (e.g. `title contains 'name'`, or `parentId = '<folder id>'` to list a folder).
+2. Small text files (CSVs under a few MB, notebooks, PDFs) can be read with `mcp__Google_Drive__read_file_content`. For anything larger, use `mcp__Google_Drive__download_file_content`.
+3. The embedding CSVs and `.npz` files are too big to read through the tool, and images and the checkpoint are binary. Ask the user to upload them or run the step in Colab.
+4. If the Drive tools return "Forbidden", the connector needs reconnecting in the user's claude.ai connector settings. Many files are owned by `corals_inpa@menasim.org` or `ataragold@gmail.com` and only visible if shared with the user's account.
+5. If a file can't be found at all, ask the user for it. Don't recreate it.
+
 ## Drive map
 Root `CoralsMasking`: https://drive.google.com/drive/folders/1LtqWRm2vieTbUGgb1ISfsqVD-g-urPRY
 Folder IDs below are for `parentId = '...'` queries.
