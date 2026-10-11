@@ -244,8 +244,8 @@ def run_zero_shot(
     crops = crops or CropConfig()
     if crops.mode != "masked":
         raise NotImplementedError(
-            "run_zero_shot supports masked crops only; bbox crops arrive with the "
-            "sharpness_crop option in Stage B"
+            "run_zero_shot supports masked crops only (the manifest's keep decision is made on "
+            "the masked crop)"
         )
     if "keep" not in manifest.columns:
         raise ValueError("run_zero_shot needs an image manifest (with a 'keep' column)")

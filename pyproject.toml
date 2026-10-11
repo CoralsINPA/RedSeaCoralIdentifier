@@ -19,6 +19,9 @@ dependencies = [
     "tqdm>=4.66",
 ]
 
+[project.scripts]
+coralid = "coralid.cli:main"
+
 # torch is deliberately not pinned: use whatever the runtime (Colab) already ships.
 [project.optional-dependencies]
 clip = [
