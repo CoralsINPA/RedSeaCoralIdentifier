@@ -91,6 +91,14 @@ def test_load_legacy_audit_reads_the_judgments_and_numbers(tmp_path):
     assert audit["confidence"].dtype == float and audit["sharpness"].iloc[0] == 200.0
 
 
+def test_load_legacy_audit_warns_about_what_it_could_not_read(tmp_path, caplog):
+    rows = [("A.JPG", 0, "yes", ""), ("A.JPG", 1, "no", ""), ("A.JPG", 2, "yes?", "")]
+    with caplog.at_level("WARNING", logger="coralid.genus_audit"):
+        audit = load_legacy_audit(_audit_file(tmp_path, rows))
+    assert "2 problem(s)" in caplog.text and "invalid_answer" in caplog.text
+    assert audit["answer"].tolist() == ["yes", "no", None]  # an unreadable answer is pending
+
+
 def _set_calls(preds, calls):
     """Force the baseline's call for some crops: {(image, id): genus}."""
     preds = preds.copy()

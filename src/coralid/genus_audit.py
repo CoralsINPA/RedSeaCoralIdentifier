@@ -25,6 +25,7 @@ each crop was chosen and what the model said; `coralid.review_scoring` scores th
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -36,6 +37,8 @@ import pandas as pd
 from coralid.labeling import ACTUAL_GENUS, NO, NOTES, UNSURE, YES, answer_column, ingest_review
 from coralid.orientation import LANDSCAPE, PORTRAIT, add_orientation
 from coralid.predictions import normalize_keys
+
+logger = logging.getLogger(__name__)
 
 LEGACY_ANSWER = "is_true_millepora"
 LABEL = "non-expert agreement (not a precision)"
@@ -55,7 +58,13 @@ def load_legacy_audit(path: str | os.PathLike[str], answer: str = LEGACY_ANSWER)
     Other columns (`confidence`, `runner_up`, `sharpness`, `area`, `bbox`) are kept; the numeric
     ones are converted.
     """
-    table = ingest_review(path, answer).table
+    review = ingest_review(path, answer)
+    if len(review.problems):
+        kinds = review.problems["problem"].value_counts().to_dict()
+        logger.warning(
+            "%s: %d problem(s) in the old audit sheet: %s", path, len(review.problems), kinds
+        )
+    table = review.table
     for col in ("confidence", "sharpness", "area"):
         if col in table.columns:
             table[col] = pd.to_numeric(table[col], errors="coerce")
