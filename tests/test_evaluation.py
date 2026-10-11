@@ -19,7 +19,7 @@ from coralid.evaluation import (
     wilson_interval,
 )
 from coralid.genera import load_genera
-from tests.assaf_matrix import ASSAF, ASSAF_PRECISION, ASSAF_RECALL
+from tests.assaf_matrix import ASSAF, ASSAF_CSV, ASSAF_PRECISION, ASSAF_RECALL
 
 HARD20 = load_genera().genera("hard20")
 
@@ -48,6 +48,24 @@ HARD20 = load_genera().genera("hard20")
 )
 def test_expert_status(raw, status, genus):
     assert expert_status(raw, HARD20) == (status, genus)
+
+
+@pytest.mark.parametrize(
+    ("raw", "is_correct", "status"),
+    [
+        (None, "unidentifiable", UNIDENTIFIABLE),  # the real file: the word sits in is_correct
+        (float("nan"), "Unidentifiable", UNIDENTIFIABLE),
+        (pd.NA, "MISSING_LABEL", MISSING),
+        (None, "True", MISSING),  # a plain flag says nothing about the genus
+        (None, "False", MISSING),
+        (None, None, MISSING),
+        ("", pd.NA, MISSING),
+        ("Acropora", "unidentifiable", IN_SET),  # a genus in expert_genus always wins
+        ("unidentifiable", "True", UNIDENTIFIABLE),
+    ],
+)
+def test_expert_status_falls_back_to_is_correct_when_the_genus_is_empty(raw, is_correct, status):
+    assert expert_status(raw, HARD20, is_correct=is_correct)[0] == status
 
 
 def test_status_depends_on_the_label_set():
@@ -108,6 +126,30 @@ def test_load_expert_set_normalizes_every_status(tmp_path):
     assert genus[[0, 1, 2, 6]].tolist() == ["Acropora", "Dipsastraea", "Cladiella", "Litophyton"]
     assert genus[[3, 4, 5]].isna().all()  # no genus for unidentifiable / missing
     assert out["expert_raw"].tolist()[:2] == ["Acropora", "dipsastraea"]
+
+
+def test_load_expert_set_reads_the_status_from_is_correct(tmp_path):
+    """The real file leaves expert_genus empty and puts the word in is_correct."""
+    path = _expert_csv(
+        tmp_path,
+        {
+            "image_name": ["A.JPG"] * 6,
+            "coral_id": [0, 1, 2, 3, 4, 5],
+            "expert_genus": ["Acropora", "Sinularia", None, None, None, None],
+            "is_correct": [True, False, "unidentifiable", "MISSING_LABEL", False, None],
+        },
+    )
+    out = load_expert_set(path)
+    assert out["status"].tolist() == [IN_SET, OUT_OF_SET, UNIDENTIFIABLE, MISSING, MISSING, MISSING]
+    assert out["expert_raw"].tolist() == [
+        "Acropora",
+        "Sinularia",
+        "unidentifiable",
+        "MISSING_LABEL",
+        None,
+        None,
+    ]
+    assert out["expert_genus"].isna().tolist() == [False, False, True, True, True, True]
 
 
 def test_load_expert_set_rejects_bad_files(tmp_path):
@@ -304,6 +346,50 @@ def test_the_real_review_pipeline_reproduces_the_authoritative_matrix(tmp_path):
     # the most common confusion: Dipsastraea -> Favia and -> Leptastrea (2 each)
     assert set(report.top_confusions.head(2)["true"]) == {"Dipsastraea"}
     assert report.top_confusions.head(2)["count"].tolist() == [2, 2]
+
+
+def _real_shaped_csv(tmp_path):
+    """A file shaped like the real assaf_expert_test_set.csv: 77 rows, and for the 18 rows
+    without a genus an empty expert_genus with the word in is_correct (16 + 2)."""
+    rows = [(t, p) for t, row in ASSAF_CSV.items() for p, n in row.items() for _ in range(n)]
+    rows += [("unidentifiable", HARD20[i % 20]) for i in range(16)]
+    rows += [("MISSING_LABEL", HARD20[i % 20]) for i in range(2)]
+    records = []
+    for i, (true, predicted) in enumerate(rows):
+        marker = true in ("unidentifiable", "MISSING_LABEL")
+        records.append(
+            {
+                "image_name": f"IMG_{i // 3}.JPG",
+                "coral_id": i % 3,
+                "bbox": f"[{i}.0, 10.0, 200.0, 150.5]",
+                "area": 30000 + i,
+                **{g: (0.81 if g == predicted else 0.01) for g in HARD20},
+                "predicted_genus": predicted,
+                "confidence": 0.81,
+                "expert_genus": None if marker else true,
+                "is_correct": true if marker else true == predicted,
+                "review_source": "assaf",
+            }
+        )
+    path = tmp_path / "assaf_expert_test_set.csv"
+    pd.DataFrame(records).to_csv(path, index=False)
+    return path
+
+
+def test_the_real_file_shape_gives_77_rows_54_in_set_and_36_correct(tmp_path):
+    path = _real_shaped_csv(tmp_path)
+    report = evaluate(load_legacy_predictions(path), load_expert_set(path), "hard20")
+    assert report.coverage["n_expert"] == report.coverage["n_joined"] == 77
+    assert report.status_counts == {IN_SET: 54, OUT_OF_SET: 5, UNIDENTIFIABLE: 16, MISSING: 2}
+    assert (report.accuracy_in_set["correct"], report.accuracy_in_set["total"]) == (36, 54)
+    assert report.accuracy_in_set["accuracy"] == pytest.approx(0.667, abs=5e-4)
+    assert (report.accuracy_in_plus_out["correct"], report.accuracy_in_plus_out["total"]) == (
+        36,
+        59,
+    )
+    assert report.confusion_cells() == {
+        (t, p): n for t, r in ASSAF_CSV.items() for p, n in r.items()
+    }
 
 
 # ------------------------------------------------------------------------ the adapter

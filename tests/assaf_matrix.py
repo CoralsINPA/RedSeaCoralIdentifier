@@ -23,6 +23,17 @@ ASSAF = {
     "Litophyton": {"Acropora": 1},
     "Sinularia": {"Acropora": 1},
 }
+
+# The same review as saved in assaf_expert_test_set.csv (the reference, see
+# docs/agent_memory/sessions/2026-10-11_parity_run_1.md): 77 rows. Against the matrix above it lacks
+# one correct Favia, one correct Favites, one correct Porites and two correct Stylophora, and has
+# two correct Seriatopora. 59 identifiable rows (54 in the label set, 5 soft corals), 36 correct.
+ASSAF_CSV = {true: dict(row) for true, row in ASSAF.items()}
+del ASSAF_CSV["Favia"]
+ASSAF_CSV["Favites"]["Favites"] = 2
+ASSAF_CSV["Porites"]["Porites"] = 4
+ASSAF_CSV["Stylophora"]["Stylophora"] = 1
+ASSAF_CSV["Seriatopora"] = {"Seriatopora": 2}
 ASSAF_RECALL = {"Acropora": 100, "Platygyra": 83, "Porites": 71, "Millepora": 100, "Montipora": 75}
 ASSAF_RECALL |= {"Favites": 60, "Stylophora": 100, "Goniastrea": 50, "Hydnophora": 100}
 ASSAF_RECALL |= {"Echinopora": 67, "Pocillopora": 100, "Dipsastraea": 14, "Pavona": 100}

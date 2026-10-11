@@ -8,6 +8,10 @@ Expert labels are normalized to a *status*:
 - `unidentifiable`: the expert could not name the genus (`unidentifiable`, `?`);
 - `missing`: no label (`MISSING_LABEL`, blank).
 
+In the real `assaf_expert_test_set.csv` the `expert_genus` cell is empty for these last two
+kinds, and the `is_correct` column holds the word (`unidentifiable` or `MISSING_LABEL`). So when
+`expert_genus` is empty the status comes from `is_correct`.
+
 `compare_predictions`, `load_legacy_predictions` and `distribution_vs_ground_truth` live in
 `coralid.predictions` and are re-exported here.
 
@@ -18,6 +22,7 @@ and precision, the full confusion matrix and the top confusion pairs.
 
 from __future__ import annotations
 
+import logging
 import math
 import os
 from collections.abc import Sequence
@@ -46,12 +51,15 @@ __all__ = [
     "compare_predictions",
     "confusion_cells",
     "distribution_vs_ground_truth",
+    "effective_label",
     "evaluate",
     "expert_status",
     "load_expert_set",
     "load_legacy_predictions",
     "wilson_interval",
 ]
+
+logger = logging.getLogger(__name__)
 
 IN_SET = "in_set"
 OUT_OF_SET = "out_of_set"
@@ -70,10 +78,35 @@ def _canonical_names(genera: Sequence[str]) -> dict[str, str]:
     return names
 
 
-def expert_status(value: Any, genera: Sequence[str]) -> tuple[str, str | None]:
-    """Return `(status, genus)` for one raw `expert_genus` value (`genus` is None if none)."""
+def _text(value: Any) -> str:
+    """The stripped text of a cell, "" for None / NaN / pd.NA."""
     blank = value is None or (not isinstance(value, str) and bool(pd.isna(value)))
-    text = "" if blank else str(value).strip()
+    return "" if blank else str(value).strip()
+
+
+def effective_label(value: Any, is_correct: Any = None) -> str | None:
+    """The label a row really carries: `expert_genus`, else the marker word in `is_correct`.
+
+    Returns None if both are empty or `is_correct` is a plain True / False.
+    """
+    text = _text(value)
+    if text:
+        return text
+    marker = _text(is_correct)
+    if marker.lower() in _UNIDENTIFIABLE_LABELS | _MISSING_LABELS - {""}:
+        return marker
+    return None
+
+
+def expert_status(
+    value: Any, genera: Sequence[str], is_correct: Any = None
+) -> tuple[str, str | None]:
+    """Return `(status, genus)` for one `expert_genus` value (`genus` is None if none).
+
+    If `value` is empty, `is_correct` decides: `unidentifiable` gives that status, and
+    `MISSING_LABEL`, True, False or empty give `missing`.
+    """
+    text = effective_label(value, is_correct) or ""
     key = text.lower()
     if key in _MISSING_LABELS:
         return MISSING, None
@@ -91,16 +124,23 @@ def load_expert_set(path: str | os.PathLike[str], label_set: str | Sequence[str]
     `status`, and `review_source` when the file has it.
     """
     genera = resolve_genera(label_set)
-    raw = pd.read_csv(path, dtype={"expert_genus": "string"})
+    raw = pd.read_csv(path, dtype={"expert_genus": "string", "is_correct": "string"})
     missing = {"image_name", "coral_id", "expert_genus"} - set(raw.columns)
     if missing:
         raise ValueError(f"{path}: missing column(s) {sorted(missing)}")
     df = normalize_keys(raw)
     if df.duplicated(["image_name", "coral_id"]).any():
         raise ValueError(f"{path}: the expert set has duplicate (image_name, coral_id) keys")
-    parsed = [expert_status(v, genera) for v in df["expert_genus"]]
+    flags = df["is_correct"] if "is_correct" in df.columns else [None] * len(df)
+    labels = [effective_label(v, f) for v, f in zip(df["expert_genus"], flags, strict=True)]
+    parsed = [expert_status(label, genera) for label in labels]
+    from_flag = sum(
+        1 for v, label in zip(df["expert_genus"], labels, strict=True) if not _text(v) and label
+    )
+    if from_flag:
+        logger.info("%d row(s) have no expert_genus; their status comes from is_correct", from_flag)
     out = df[["image_name", "coral_id"]].copy()
-    out["expert_raw"] = df["expert_genus"].astype(object).where(df["expert_genus"].notna(), None)
+    out["expert_raw"] = pd.Series(labels, dtype=object)
     out["expert_genus"] = [genus for _, genus in parsed]
     out["status"] = [status for status, _ in parsed]
     if "review_source" in df.columns:
