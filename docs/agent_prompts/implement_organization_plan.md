@@ -299,10 +299,14 @@ Each item below is its own commit. Each commit message and the session memory fi
    - cross-validation grouped by image (`GroupKFold`);
    - a held-out report, never accuracy on the training set.
 4. **`clustering.py`, `viz.py` and `colab.py`** per plan §3.3. Each `viz` function takes a table plus an `AnnotationStore`, and none of them computes anything.
+   - **`colab.setup()` must install the way `notebooks/parity_check.ipynb` does:** clone the repo with `--recurse-submodules`, `pip install -e`, then make the editable install importable in the running interpreter.
+   - Plain `pip install git+https://...` won't work: it would miss `configs/genera.yaml` and the CoralSCOP submodule.
+   - Alternatively, ship `configs/` as package data, but the submodule still needs the clone.
 5. **`cli.py`:** `python -m coralid {segment, build-manifest, embed, zero-shot, evaluate, export-review, train-probe} --config ...`
 6. **Notebooks** (plan §3.6): `01_segment_and_filter`, `02_embeddings_explore`, `03_zero_shot`, `04_expert_review_and_audits`, `05_supervised_probe`.
    - Each is under 15 cells, with no function definitions; it calls the library.
    - Outputs stripped.
+   - They must pass `ruff check` and `ruff format --check`, because ruff 0.17 lints notebooks too.
 7. **`README.md`:** a quickstart with the Colab setup, then running 01 → 04.
 8. **Deleting `notebooks/legacy/`:** only after the user confirms one end-to-end run worked. Ask.
 

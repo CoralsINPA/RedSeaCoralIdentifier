@@ -158,7 +158,7 @@ RedSeaCoralIdentifier/
 | `evaluation.py` | Scores predictions against the expert set. Normalizes the special labels (`unidentifiable`, `MISSING_LABEL`, and soft corals outside the target set). Reports per-genus precision/recall, confusion pairs, and the genus distribution compared with `ground_truth_genus_counts.csv`. | WC 10 (commented out), WC 23, V2 19-20, MA 2 |
 | `clustering.py` | PCA, UMAP, t-SNE, KMeans and HDBSCAN, with silhouette, Davies-Bouldin and compactness scores | CM 12-15, 19-21 |
 | `viz.py` | Crop grids, per-genus galleries, multi-page PDFs and mask overlays. Each takes a table plus an `AnnotationStore`. | CM 8 §4, 14, 16, 22; WC 16, 18, 20, 25; MA 3-4, 6, 9; V2 13-14, 22 |
-| `colab.py` | Mounts Drive, sets `DATA_ROOT`, and installs the package from GitHub (no token needed while the repo is public). The only Colab-specific module. | The 6 `drive.mount` cells |
+| `colab.py` | Mounts Drive and sets `DATA_ROOT`. Installs the package by cloning the repo with its submodule and running `pip install -e`, which also brings `configs/` and CoralSCOP; no token needed while the repo is public. The only Colab-specific module. | The 6 `drive.mount` cells |
 | `cli.py` | `python -m coralid {segment, build-manifest, embed, zero-shot, tier, export-review, train-probe, evaluate} --config ...` | "Run all cells" for multi-hour jobs |
 
 ### 3.4 Conventions (the rules that prevent the bugs in §2.1)
