@@ -1,0 +1,41 @@
+# Active run: SAM points_per_side 32, pred_iou 0.60, stability 0.55, min_mask_region_area 100.
+# Paths are relative to the data root. Leave data_root empty to use $CORALID_DATA_ROOT.
+paths:
+  data_root: null
+  images_dir: data_all
+  results_dir: results_all
+  json_dir: json
+  manifest_dir: manifest
+  features_dir: features
+  predictions_dir: predictions
+  reviews_dir: reviews
+  reports_dir: reports
+  ground_truth_csv: ground_truth_genus_counts.csv
+sam:
+  model_type: vit_b
+  checkpoint: CoralSCOP/checkpoints/vit_b_coralscop.pth
+  points_per_side: 32
+  pred_iou_thresh: 0.6
+  stability_score_thresh: 0.55
+  crop_n_layers: 1
+  crop_n_points_downscale_factor: 2
+  min_mask_region_area: 100
+  max_side: 2560
+filters:
+  min_area: 25000
+  containment_thresh: 0.8
+  max_aspect_ratio: 3.0
+  sharpness_threshold: 80.0
+crops:
+  mode: masked
+  background: black
+  padding_pct: 0.05
+  bbox_padding_pct: 0.15
+  min_visible: 500
+zero_shot:
+  model: finetuned-bioclip
+  label_set: hard20
+  prompt_format: taxonomy
+  prompt_set: taxonomy_v1
+  batch_size: 64
+  logit_scale: 100.0
