@@ -12,7 +12,7 @@ The logic currently lives in the Colab notebooks below, now kept as frozen refer
 | 2. Zero-shot classification | `notebooks/legacy/weak_classification.ipynb` | Classifies each mask crop into 20 Red Sea hard-coral genera with CLIP-family models (fine-tuned BioCLIP by default; BioCLIP 2 and SigLIP 2 also supported). |
 | 3. Genus audit | `notebooks/legacy/Millepora_Analysis.ipynb` | Precision audit and false-positive/negative analysis for *Millepora* (fire coral). |
 
-Quality filters applied to masks: minimum area 25,000 px², aspect ratio at most 3, containment threshold 0.80, Laplacian sharpness at least 80. Source images are resized to 2560 x 1920.
+Quality filters applied to masks: minimum area 25,000 px², aspect ratio at most 3, containment threshold 0.80, Laplacian sharpness at least 80. Source images are resized to the mask frame, whose long side is 2560 (2560 x 1920 for landscape photos, 1920 x 2560 for the 221 portrait ones).
 
 ## Finding
 
@@ -23,13 +23,15 @@ The extended V2 pipeline (24 genera, tiered review, Millepora audit inputs) is i
 ## Repository layout
 
 ```
-src/coralid/          Installable package: masks, crops, filters, manifest, zero-shot scoring, evaluation (more to come)
+src/coralid/          Installable package: masks, crops, filters, manifest, zero-shot scoring, the 20-genus baseline job and its reports, expert-set evaluation, review sheets and audits, and a small CLI (more to come)
 configs/              Run configuration (iou60_sta55_pts32.yaml) and the genus label set and prompts (genera.yaml)
 tests/                CPU-only tests on synthetic data (no data or GPU needed)
-notebooks/parity_check.ipynb  Colab notebook that checks the package against the legacy notebooks
+notebooks/03_zero_shot.ipynb                  Colab, early version: the baseline job and its reports (expert set, genus mix, by photo orientation)
+notebooks/04_expert_review_and_audits.ipynb   Colab, early version: portrait impact and the Millepora re-analysis (blind review sheets)
+notebooks/parity_check.ipynb                  Colab: checks the package against the legacy notebooks
 notebooks/legacy/     The original Colab notebooks and the V2 notebook, frozen as reference
 third_party/CoralSCOP Submodule: upstream CoralSCOP segmentation model
-docs/                 Onboarding guide, its errata, the organization plan, agent memory
+docs/                 Onboarding guide, its errata, the organization plan, algorithm ideas, agent memory
 ```
 
 ## Getting started
@@ -48,6 +50,14 @@ ruff check . && ruff format --check . && pytest -q
 ```
 
 Set `CORALID_DATA_ROOT` to the data folder (the Drive's `CoralsMasking` folder) before running anything that reads data.
+
+The 20-genus baseline (fine-tuned BioCLIP over every kept crop of the run's manifest) runs from `notebooks/03_zero_shot.ipynb` in Colab, or from a terminal with a GPU:
+
+```bash
+python -m coralid zero-shot --config configs/iou60_sta55_pts32.yaml
+```
+
+It is resumable, never overwrites a file, and takes about 25 minutes for the 1,714 photos on a T4.
 
 ## Data and model weights (not in this repo)
 

@@ -3,22 +3,25 @@
 Genus-level coral identification for Red Sea reef photos: segment corals (CoralSCOP/SAM), then classify each crop with zero-shot CLIP-family models. See `README.md` for the overview and `docs/Coral_Pipeline_Onboarding_Guide.pdf` for the full Drive/notebook map.
 
 ## Layout
-- `src/coralid/`: the installable package that is replacing the notebooks (plan: `docs/organization_plan.md`, staged prompts: `docs/agent_prompts/implement_organization_plan.md`). Built so far (Stages A1 and A2):
-  - data path: `config`, `masks`, `images`, `crops`, `filters`, `manifest`;
-  - zero-shot path: `genera`, `encoders`, `zero_shot`, `batch` (resumable runner);
-  - scoring: `evaluation` and `predictions` (expert set, legacy CSV adapter, prediction comparison), `parity` and `parity_report` (the pass/fail logic of the parity notebook).
+- `src/coralid/`: the installable package that is replacing the notebooks (plan: `docs/organization_plan.md`, staged prompts: `docs/agent_prompts/implement_organization_plan.md`). Built so far (Stages A1, A2 and B):
+  - data path: `config`, `masks`, `images`, `crops`, `filters` (area, aspect, containment, sharpness; `sharpness_crop` is `masked` or `bbox`), `manifest`, `orientation` (landscape / portrait from the manifest's frame, and `by_orientation` to split any metric);
+  - zero-shot path: `genera`, `encoders`, `zero_shot`, `batch` (resumable runner), `baseline` (the 20-genus job: `run_baseline`), `cli` (`python -m coralid zero-shot --config ...`);
+  - scoring and reports: `evaluation` and `predictions` (expert set, legacy CSV adapter, prediction comparison), `reports` (expert evaluation and genus mix by orientation), `portrait_impact`, and `parity`, `parity_manifest`, `parity_expert`, `parity_report` (the pass/fail logic of the parity notebook);
+  - review and audits: `labeling` (review sheets, ingest by key, per-genus audit), `genus_audit` (old Millepora audit against the baseline, the blind review sheet), `review_scoring`, `review_export`, `viz` (crop-grid PDF so far).
   - Tests are in `tests/` (synthetic data only). Configs: `configs/iou60_sta55_pts32.yaml` (the run) and `configs/genera.yaml` (the `hard20` label set and the prompt sets, copied verbatim from the legacy notebooks).
 - `notebooks/legacy/`: the frozen reference notebooks, outputs included. The three Colab notebooks and V2 are here:
   - `CoralMasking.ipynb`: segmentation + DINOv2/DinoVdeau embeddings + t-SNE/UMAP/K-Means.
   - `weak_classification.ipynb`: zero-shot genus labels (20 hard-coral genera). The "breakthrough" notebook. Cells 25-34 are scratch/debug.
   - `Millepora_Analysis.ipynb`: Millepora precision audit.
   - `CoralClassification_v2_Pipeline.ipynb`: V2 (24 genera, tiers, embeddings saved). It produced the 14,224-crop run and the Millepora audit inputs.
-- `notebooks/parity_check.ipynb`: the Colab notebook that checks `coralid` against the legacy notebooks and the recorded numbers (Stage A2). It reads Drive and creates only new files. Its summary cell prints what to paste back to the next session.
+- `notebooks/parity_check.ipynb`: the Colab notebook that checks `coralid` against the legacy notebooks and the recorded numbers (Stage A2; made orientation-aware in Stage B). It reads Drive and creates only new files. Its summary cell prints what to paste back to the next session.
+- `notebooks/03_zero_shot.ipynb` and `notebooks/04_expert_review_and_audits.ipynb`: early versions of notebooks 03 and 04 of the plan (Stage B; Stage C finishes them). Thin (library calls and plots), they read Drive and create only new files. 03 runs the baseline (about 25 min on a T4) and reports on it; 04 is the portrait-impact report and the Millepora re-analysis (blind review sheets and their scoring).
 - `third_party/CoralSCOP`: git submodule (upstream zhengziqiang/CoralSCOP, pinned).
 - `docs/onboarding_errata.md`: where the PDF guide disagrees with the code and the data.
 
 ## Commands
 - Install: `pip install -e ".[dev]"` (extras: `clip`, `dino`, `segment`, `cluster`, `viz`).
+- Baseline job: `python -m coralid zero-shot --config configs/iou60_sta55_pts32.yaml` (needs a GPU, the manifest from the parity notebook's Check C, and `CORALID_DATA_ROOT`). Resumable, never overwrites.
 - Check: `ruff check .`, `ruff format --check .`, `pytest -q`. All three must pass before a commit. `notebooks/legacy/` and `third_party/` are excluded from ruff, and from nbstripout (their outputs stay).
 - Data root: set `CORALID_DATA_ROOT` (or `paths.data_root` in the config). Only `colab.py` (not written yet) may know about Colab.
 
@@ -29,7 +32,8 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
 - Expert test set results: the CSV has 77 rows; v1 accuracy on it is 36/54 = 66.7% in-set.
 - Default model: ReefNet fine-tuned BioCLIP (ViT-B/16); alternatives are BioCLIP 2 and SigLIP 2.
 - Millepora check: a non-expert analyst (not Assaf) judged 66 of 112 decided crops correct (58.9%; 51-64% counting the 17 unsure). The crops were V2's sharp, confidence >= 0.85 Millepora predictions, and the reviewer saw the model's answer. Treat the figure as provisional, and not as the 20-genus precision.
-- Expert test set: 78 hand-labeled crops (`assaf_expert_test_set.csv`), joined on `(image_name, coral_id)`.
+- Expert test set: `assaf_expert_test_set.csv`, joined on `(image_name, coral_id)`. The CSV has 77 rows (the 78-crop matrix in the memory notes is a slightly different version of the same review). Orientation matters: the expert labeled crops cut by the legacy code, which were mis-cut on portrait photos, so report expert results for landscape and portrait rows separately.
+- Outputs the notebooks create under the run folder on Drive: `manifest/manifest.parquet` (16,080 kept crops, from the parity notebook), `predictions/<model>__<prompts>__<labels>__all.parquet` and `features/<model>__<crop mode>.npz` (the baseline, each with a `.meta.json`; progress in `predictions/parts/`), `reports/` (one new folder per report), `reviews/{exports,keys,completed}/` (blind review sheets; `keys/` holds the hidden answer key, do not share it).
 - Label set: the 20 hard-coral genera (decided 2026-10-11). The 24-genus v2 pipeline is not carried forward.
 
 ## Agent memory
@@ -57,7 +61,7 @@ Folder IDs below are for `parentId = '...'` queries.
 
 Relevant:
 - Active run `results_all/iou60_sta55_pts32` (id `1up9-VQJEPyv5p8YbPCPgmO5yVx-SCz3r`). Contains `json/`, `cleaned_images_crops/`, `cluster_previews/`, `visualizations/` (subfolder contents not inspected), `coral_dinoV2_encodings.csv` (181 MB), `coral_dinoV2_encodings_MASKS.csv` (489 MB), and `v2_pipeline/`.
-- `assaf_expert_test_set.csv` (id `1PIBGXIduvOnRn3lvsTT2ZyFtjKiUVRRD`), in the active run folder. Columns: `image_name, coral_id, bbox, area`, 20 genus probabilities, `predicted_genus, confidence, expert_genus, is_correct, review_source`. `expert_genus` can be `unidentifiable` or `MISSING_LABEL`, or a soft coral (Cladiella, Sinularia, Litophyton) that is outside the 20 target genera. Exclude these when computing accuracy.
+- `assaf_expert_test_set.csv` (id `1PIBGXIduvOnRn3lvsTT2ZyFtjKiUVRRD`), in the active run folder. Columns: `image_name, coral_id, bbox, area`, 20 genus probabilities, `predicted_genus, confidence, expert_genus, is_correct, review_source`. `expert_genus` can be a soft coral (Cladiella, Sinularia, Litophyton) that is outside the 20 target genera. For crops with no genus it is empty and `is_correct` holds the word `unidentifiable` or `MISSING_LABEL` (`load_expert_set` reads it from there). Exclude these when computing accuracy.
 - `ground_truth_genus_counts.csv` (id `1DbQaZa-3lTehQPP-7PmjAkiCkbvuadwd`), in the root. Columns: `Category, genus, count, Pi`. It includes soft corals and genera outside the 20 targets, so filter to the 20 before comparing.
 - `coral_weak_labels_finetuned-bioclip_taxonomy_masked_best.csv` (id `1oB15CLt1FEQfbp4Xai1xlWs-hsiJRYqC`): zero-shot labels for the **50-densest-image sample** (842 crops). "best" is the sample mode (`SAMPLE_MODE = "best"`), not the best configuration.
 - `v2_pipeline/` (id `1pJq-dvipNiprBiQRXLAqH_iXTbEcjuNG`): `v2_weak_labels_expanded.csv`, `v2_embeddings.npz`, Millepora audit files (`millepora_sharp_audit`, review PDFs), `expert_review_for_assaf.csv`, `expert_review_images/`.
