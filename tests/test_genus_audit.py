@@ -267,3 +267,85 @@ def test_the_completed_sheet_comes_back_through_ingest(world_and_audit, tmp_path
     back = ingest_review(path, review.answer)
     assert back.table["key"].tolist() == review.sheet["key"].tolist() and back.problems.empty
     assert back.counts()["yes"] == 1 and back.counts()["pending"] == len(sheet) - 2
+
+
+# ----------------------------------------------------------------------------- writing it out
+
+
+def test_write_blind_review_hands_out_sheets_and_keeps_the_key_apart(tmp_path):
+    pytest.importorskip("matplotlib")
+    import cv2
+
+    from coralid.masks import AnnotationStore
+    from coralid.review_export import blind_review_name, read_blind_key, write_blind_review
+    from coralid.review_scoring import score_blind_review
+    from tests.helpers import make_annotation, rect_mask, write_json_dir
+
+    # a tiny world with real photos: one landscape and one portrait image, 3 crops each
+    images = tmp_path / "images"
+    images.mkdir()
+    entries, rows = [], []
+    for name, (w, h) in (("L00.JPG", (200, 150)), ("P01.JPG", (150, 200))):
+        photo = np.random.RandomState(0).randint(0, 256, (h, w, 3), dtype=np.uint8)
+        assert cv2.imwrite(str(images / name), photo)
+        masks = [rect_mask((h, w), 10 + 40 * i, 40 + 40 * i, 10, 80) for i in range(3)]
+        entries.append((name, w, h, [make_annotation(m, i) for i, m in enumerate(masks)], None))
+        for i in range(3):
+            rows.append((name, i, w, h, GENUS if i == 0 else "Acropora"))
+    store = AnnotationStore(write_json_dir(tmp_path / "json", entries))
+    table = pd.DataFrame(
+        rows, columns=["image_name", "coral_id", "frame_w", "frame_h", "predicted_genus"]
+    )
+    manifest = table[["image_name", "coral_id", "frame_w", "frame_h"]]
+    preds = table[["image_name", "coral_id", "predicted_genus"]].assign(confidence=0.9)
+    review = build_blind_review(
+        preds, manifest, GENUS, None, n_pred=2, n_other=2, n_assaf=2, seed=1
+    )
+
+    name = blind_review_name(GENUS, 1, "2026-10-12")
+    assert name == "millepora_blind_2026-10-12_seed1"
+    paths = write_blind_review(
+        review, tmp_path / "exports", tmp_path / "keys", store, images, name=name
+    )
+    assert sorted(p.name for p in (tmp_path / "exports").iterdir()) == [
+        f"{name}_analyst.csv",
+        f"{name}_analyst.pdf",
+        f"{name}_assaf.csv",
+        f"{name}_assaf.pdf",
+    ]
+    assert sorted(p.name for p in (tmp_path / "keys").iterdir()) == [
+        f"{name}_answer_key.csv",
+        f"{name}_answer_key.meta.json",
+    ]
+    assert paths["analyst_pdf"].read_bytes().startswith(b"%PDF")
+    sheet = pd.read_csv(paths["analyst_csv"], keep_default_na=False)
+    assert sheet["key"].tolist() == review.sheet["key"].tolist()
+    assert "new_pred" not in sheet.columns and "selection" not in sheet.columns
+    key, meta = read_blind_key(tmp_path / "keys", name)
+    assert (
+        meta["genus"] == GENUS and meta["name"] == name and meta["answer_column"] == "is_millepora"
+    )
+    pd.testing.assert_frame_equal(
+        key[["key", "selection", "new_pred"]],
+        review.key[["key", "selection", "new_pred"]],
+        check_dtype=False,
+    )
+    # nothing is overwritten, and nothing is written when a target exists
+    with pytest.raises(FileExistsError, match="change the seed"):
+        write_blind_review(
+            review, tmp_path / "exports", tmp_path / "keys", store, images, name=name
+        )
+    other = tmp_path / "other"
+    paths["analyst_csv"].rename(tmp_path / "moved.csv")
+    with pytest.raises(FileExistsError):
+        write_blind_review(review, tmp_path / "exports", other, store, images, name=name)
+    assert not other.exists()  # the existing PDF stopped it before the key was written
+    # the key read back from disk scores like the one in memory
+    answers = {k: "yes" for k in review.sheet["key"]}
+    sheet_in = pd.DataFrame(
+        {"key": list(answers), "is_millepora": list(answers.values()), "actual_genus": ""}
+    )
+    done = ingest_review(sheet_in, "is_millepora")
+    from_disk = score_blind_review(done, key, meta)
+    in_memory = score_blind_review(done, review.key, review.meta)
+    assert from_disk.estimates == in_memory.estimates
