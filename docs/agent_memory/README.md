@@ -6,6 +6,7 @@ This folder holds project memory and conclusions that should outlive a single ag
 
 1. **Current understanding** (below): the short version, updated every session.
 2. `sessions/`, newest first: what each session did, verified and concluded.
+   - `sessions/2026-10-11_stage_B.md`: Stage B (orientation-aware parity, the 20-genus baseline job, portrait-impact report, review sheets and the Millepora re-analysis tools, early notebooks 03 and 04); nothing has run on real data yet.
    - `sessions/2026-10-11_stage_A2.md`: Stage A2 (zero-shot path, evaluation, resumable runner, the Colab parity notebook), what was verified, the real-data check that was skipped, and what to run next.
    - `sessions/2026-10-11_stage_A1.md`: Stage A1 of the refactor (packaging, tooling, core data modules), what was verified, and the bugs found but not fixed.
    - `sessions/2026-10-11_parity_run_1.md`: first Colab parity run (portrait photos, expert CSV vs matrix).
@@ -53,18 +54,20 @@ Last updated 2026-10-11.
 - **Taxonomy drift.** Most Indo-Pacific *Favia* were moved to *Dipsastraea*, yet `ground_truth_genus_counts.csv` lists both, so the survey itself mixes old and new names.
 
 **Code**
-- **State (2026-10-11):** Stages A1 and A2 of the refactor are written. The `coralid` package (`src/coralid/`) has:
-  - the data path: `config`, `masks`, `images`, `crops`, `filters`, `manifest`;
-  - the zero-shot path: `genera` (with `configs/genera.yaml`), `encoders`, `zero_shot`, `batch` (resumable runner);
-  - scoring: `evaluation`, `predictions`, and the pass/fail logic of the parity notebook (`parity`, `parity_report`).
-  It has 232 CPU tests (two need torch), CI, ruff and pre-commit. The legacy notebooks and V2 are frozen in `notebooks/legacy/`. It reproduces the legacy behavior (checked against verbatim copies of the notebook code, and by a local dry run of the parity notebook with a stand-in model). Containment runs on the RLE.
-- **Nothing has been run on real data yet.** `notebooks/parity_check.ipynb` does that in Colab (Checks A, B, D in about 20 minutes, then Check C in about 2 hours, resumable). Its summary cell prints a JSON block to paste into the next session. The real expert-set check (78 rows, 39 correct, matrix cell for cell) was **not** done by the agent; it is Check D.
+- **State (2026-10-11):** Stages A1, A2 and B of the refactor are written. The `coralid` package (`src/coralid/`) has:
+  - the data path: `config`, `masks`, `images`, `crops`, `filters` (with a `sharpness_crop` option: `masked` or `bbox`), `manifest`, `orientation` (landscape / portrait, and a way to split any metric by it);
+  - the zero-shot path: `genera` (with `configs/genera.yaml`), `encoders`, `zero_shot`, `batch` (resumable runner), `baseline` (the 20-genus job) and `cli` (`python -m coralid zero-shot`);
+  - scoring and reports: `evaluation`, `predictions`, `reports` (expert evaluation and genus mix by orientation), `portrait_impact`, and the parity checks (`parity`, `parity_manifest`, `parity_expert`, `parity_report`);
+  - review and audits: `labeling`, `genus_audit` (the old Millepora audit against the baseline and the blind review sheet), `review_scoring`, `review_export`, `viz` (a crop-grid PDF so far).
+  It has 342 CPU tests (two need torch), CI, ruff and pre-commit. The legacy notebooks and V2 are frozen in `notebooks/legacy/`. It reproduces the legacy behavior on landscape photos (real data, see below). Containment runs on the RLE.
+- **What has run on real data:** only the parity notebook (`sessions/2026-10-11_parity_run_1.md`). **Nothing from Stage B has**: the baseline job, the portrait-impact report, the reports and the Millepora tools were tested on synthetic data and dry-run on a synthetic Drive. `notebooks/03_zero_shot.ipynb` (about 25 minutes on a T4) and `notebooks/04_expert_review_and_audits.ipynb` do the real runs. The expected 16 / 2 split of the 18 expert rows without a genus (`unidentifiable` / `MISSING_LABEL` read from `is_correct`) is still unconfirmed.
 - **Found, not fixed:** SAM's bbox is one pixel short (`w = right - left`), a black photo pixel inside a mask counts as not visible, running WC cell 14 overwrites a CSV and a PNG on Drive, `configs/` is not part of a non-editable install, and the V2 notebook carries Colab account metadata (see the two Stage sessions).
 - **Outputs not to trust:** `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 features. All three cut crops from the wrong part of the photo.
 
 **Next**
-- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1 and A2 are written; the user must now run the parity notebook in Colab** and paste back its summary, then Stage B starts (only if Checks A and B pass).
-- Stage B's 20-genus run on all images is the **new baseline**. It builds on the manifest that Check C saves to `<run>/manifest/`.
+- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1, A2 and B are written. The user now runs, in order:** `03_zero_shot.ipynb` (the baseline), `04_expert_review_and_audits.ipynb` (portrait impact, the old Millepora audit against the baseline, and the blind review sheets), then the analyst and Assaf fill the sheets and the last cell of 04 scores them. Then Stage C.
+- The 20-genus run on all images is the **new baseline** (`<run>/predictions/` and `<run>/features/`). It builds on the manifest that Check C saved to `<run>/manifest/`. Report its expert results for landscape and portrait rows apart: Assaf labeled crops cut by the legacy code, which were mis-cut on portrait photos.
+- **Millepora, redone:** the blind sheet, the scoring (precision, miss rate and recall with intervals, the analyst against Assaf, what the false positives really are) and the portrait re-review are built; the old audit's portrait rows are never reused.
 - **Parity established (2026-10-11).** On landscape photos, `coralid` reproduces the legacy zero-shot results exactly (773/773 crops, 100% top-1, max probability difference 9e-6).
 - **Portrait photos were broken in the legacy code.** 221 of 1,714 photos (13%) are portrait. The legacy classification, review and audit code squashed them to 2560×1920 without moving the boxes:
   - it kept only about 25% of their crops;

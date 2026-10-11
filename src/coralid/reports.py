@@ -93,12 +93,7 @@ def _rows_in(df: pd.DataFrame, frames: pd.DataFrame, group: str) -> pd.DataFrame
     return tagged[tagged["orientation"] == group].drop(columns="orientation")
 
 
-def _paired(
-    expert: pd.DataFrame,
-    legacy: pd.DataFrame,
-    new: pd.DataFrame,
-    genera: list[str],
-) -> dict[str, Any]:
+def _paired(expert: pd.DataFrame, legacy: pd.DataFrame, new: pd.DataFrame) -> dict[str, Any]:
     """New and legacy compared on the expert rows that have both predictions."""
     both = normalize_keys(legacy)[["image_name", "coral_id", "predicted_genus"]].merge(
         normalize_keys(new)[["image_name", "coral_id", "predicted_genus"]],
@@ -143,7 +138,7 @@ def baseline_report(
         subset = _rows_in(expert, manifest, group)
         new_eval[group] = evaluate(predictions, subset, genera)
         legacy_eval[group] = evaluate(legacy_predictions, subset, genera)
-        paired.append({"group": group} | _paired(subset, legacy_predictions, predictions, genera))
+        paired.append({"group": group} | _paired(subset, legacy_predictions, predictions))
         distribution[group] = distribution_vs_ground_truth(
             _rows_in(predictions, manifest, group), ground_truth_csv, genera
         )
