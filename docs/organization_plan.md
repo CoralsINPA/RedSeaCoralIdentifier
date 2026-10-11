@@ -99,7 +99,7 @@ Things worth knowing that the docs don't say:
 - **Containment.** The guide says the smaller mask is removed, but the code removes the larger one. WC 7 says that's intended ("keeps the finer-grained segment").
 - **Folder structure.** The guide's "Data and folder structure" section doesn't match Drive: it lists `Coral_Segmentation_Outputs/`, `reef_masks/`, `.npy` features, `genera_taxonomy.json` and `checkpoints/`. The Drive map in CLAUDE.md is the accurate one.
 - **Prompt format.** The guide recommends `ensemble`, but V2 says taxonomy did best in v1 and uses taxonomy.
-- **Where the headline numbers come from.** The 14,224-crop and 58.9% numbers come from V2: 24 genera including soft corals, with sharpness measured as the bbox Laplacian ≥ 150.
+- **Where the headline numbers come from.** The 14,224-crop and 58.9% numbers come from V2: 24 genera including soft corals, with sharpness measured as the bbox Laplacian ≥ 150. The 58.9% judgments were made by a non-expert analyst (confirmed by the user on 2026-10-11).
 - **CLAUDE.md fixes.** The `_best` file is the 50-image sample, and the V2 notebook exists only on Drive.
 
 ## 3. Target design
@@ -142,7 +142,7 @@ RedSeaCoralIdentifier/
 
 | Module | Responsibility | Replaces |
 |---|---|---|
-| `config.py` | Dataclasses `Paths`, `SamConfig`, `FilterConfig`, `CropConfig` and `ZeroShotConfig`. Loads and saves YAML, derives the run name, and reads `DATA_ROOT` from an env var or the Colab default. | Path and parameter blocks in CM 2, 6, 7, 11, 18; WC 6, 8; V2 4; MA 2, 4-6, 9 |
+| `config.py` | Dataclasses `Paths`, `SamConfig`, `FilterConfig`, `CropConfig` and `ZeroShotConfig`. Loads and saves YAML, derives the run name, and takes `DATA_ROOT` from `paths.data_root` or the `CORALID_DATA_ROOT` env var. The Colab default path lives only in `colab.py`. | Path and parameter blocks in CM 2, 6, 7, 11, 18; WC 6, 8; V2 4; MA 2, 4-6, 9 |
 | `masks.py` | RLE encode/decode and mask-JSON read/write. Defines `CoralKey(image_name, coral_id)` and its string `uid`. Parses bboxes without `eval`. `AnnotationStore` gives cached per-image lookup by key. | 6× `decode_rle`, the RLE block in CM 8, 10× `eval(bbox)`, 8× JSON rescans |
 | `images.py` | `load_rgb` and `load_in_mask_frame(image_path, mask_json)`. This is the **only** code that resizes, and it uses the JSON's width and height. | 13× hard-coded `(2560, 1920)`, and the missing resizes in CM 10, 14, 17, 18, 22 |
 | `crops.py` | `bbox_crop`, `masked_crop(background, padding)` and `square_pad` | 13 crop helpers |

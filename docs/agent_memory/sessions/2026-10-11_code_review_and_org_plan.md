@@ -54,6 +54,18 @@ Claude Code cloud session on branch `claude/awesome-archimedes-kvh4c7`. Main out
 - The 58.9% precision, though, was measured on V2's 24-genus predictions. Without the soft-coral classes, crops V2 called Sinularia or Sarcophyton will move to the hard genera. Sinularia was Millepora's #3 runner-up, so the 20-genus precision could be lower.
 - **Plan:** run the 20-genus model on all images, reuse the existing 129 judgments where crops overlap, and review only the new Millepora predictions.
 - **Next time:** fill in `actual_genus` for the "no" crops. It was left empty, so we don't know what Millepora gets confused with.
+- **Update: the reviewer was a non-expert** (user, later in the session). The judgments were made by an analyst without coral training, using reference pictures of Millepora, with the model's confidence and runner-up shown on each crop. So the 58.9% is a provisional agreement rate, not a precision. Other issues:
+  - only the most confident, sharpest slice was sampled;
+  - the "bbox sharpness ≥ 150" filter is ad hoc;
+  - the 17 unsure crops were dropped (51-64% depending on how they count);
+  - the 95% interval on 66/112 is about 50-68%.
+- **Redesign, now in Stage B of the implementation prompt:**
+  - blind and mixed with non-Millepora crops;
+  - sampled across confidence levels;
+  - `actual_genus` required for every "no";
+  - Assaf labels about 40 of the same crops to measure analyst-expert agreement.
+
+  If the agreement is high, a trained non-expert could take some labeling load off Assaf.
 
 **Going 20-hard still needs a reject option.**
 - Soft corals are in the photos: 5 of 62 identifiable crops in Assaf's review, and 11.7% of V2's predictions.

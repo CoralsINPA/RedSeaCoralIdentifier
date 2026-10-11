@@ -5,7 +5,7 @@ Snapshot of the claude.ai project memory entry "Coral genus classification for t
 ## Notes (added 2026-10-11)
 
 - **Overall accuracy.** "~59% accuracy (38 correct, 26 wrong, 16 unidentifiable)" counts the original 80-crop review. The transcribed 78-crop CSV gives 39/62 = 62.9%. If you leave out the 5 soft corals, which weren't among v1's 20 classes (the rule in `CLAUDE.md`), it's 39/57 = 68.4%. See `assaf_review_confusion_matrix.md`.
-- **Millepora isn't reliable.** It is listed below as handled reliably, but the Millepora audit finished on 2026-09-15 found 58.9% precision on sharp predictions at confidence ≥ 0.85 (`Millepora_Analysis.ipynb`).
+- **Millepora may not be reliable.** It is listed below as handled reliably. But the Millepora check finished on 2026-09-15 (`Millepora_Analysis.ipynb`) judged only 58.9% of the sharp, confidence ≥ 0.85 V2 predictions correct. The judging was done by a non-expert analyst, not Assaf, so it is provisional. See `README.md`.
 - **Pavona over-prediction.** "Pavona overprediction worsened significantly" fits what I measured: 13.7% of v1 predictions (842-crop sample) and 17.6% of V2 hard-coral predictions (all 14,224 crops), against 0.4% in the survey. The two runs used different crop sets, though, so the size of the change isn't pinned down.
 - **The GitHub repo exists** at `CoralsINPA/RedSeaCoralIdentifier`.
 - **Phase 2 has a bug.** The planned Phase 2 code joins on `coral_id` alone, and `coral_id` repeats across images. It needs fixing before the classifier is trained (`docs/organization_plan.md` §2.1 #3).

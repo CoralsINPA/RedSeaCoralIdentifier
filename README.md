@@ -16,7 +16,7 @@ Quality filters applied to masks: minimum area 25,000 px², aspect ratio at most
 
 ## Finding
 
-The *Millepora* audit found precision of only 58.9% on sharp, high-confidence (at least 0.85) crops: 129 reviewed, 66 correct, 46 wrong, 17 uncertain.
+A *Millepora* check found that only 58.9% of the model's sharp, high-confidence (at least 0.85) Millepora predictions looked correct: 66 correct, 46 wrong and 17 uncertain, out of 129. The judgments were made by a non-expert analyst, not by the coral expert, with the model's answer visible, on the 24-genus V2 predictions. Treat the number as provisional.
 
 The extended V2 pipeline (24 genera, tiered review, Millepora audit inputs) is in `notebooks/legacy/CoralClassification_v2_Pipeline.ipynb`. It is the source of the 14,224-crop run.
 

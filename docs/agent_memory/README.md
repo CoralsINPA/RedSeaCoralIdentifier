@@ -35,7 +35,13 @@ Last updated 2026-10-11.
   - 5 are soft corals. They pull Acropora precision down to 56%.
   - 5 are other.
 - **The expert set is too small to show modest improvements.** A larger stratified review of the new baseline is needed.
-- **Millepora:** 58.9% precision on sharp, confidence ≥ 0.85 V2 predictions (66 yes / 46 no / 17 unsure). So Millepora is *not* reliable, even though older memory lists it as reliable. The crops and judgments are valid, but the figure is for the 24-genus setup. Re-run the analysis on the 20-genus full run, reusing the 129 judgments.
+- **Millepora:** a **non-expert analyst** (not Assaf) judged V2's sharp, confidence ≥ 0.85 Millepora predictions: 66 yes / 46 no / 17 unsure, so 58.9% of the decided ones, or 51-64% counting the unsure. It's a useful warning sign, not a measured precision:
+  - the reviewer wasn't an expert;
+  - the reviewer saw the model's answer;
+  - only the most confident, sharpest slice was checked;
+  - it was the 24-genus setup.
+
+  Redo it on the 20-genus baseline: blind, mixed with non-Millepora crops, sampled across confidence levels, with `actual_genus` recorded, and with Assaf labeling a subset to measure how well the analyst agrees with him.
 
 **Known failure modes**
 - The massive-coral complex: Dipsastraea, Favia, Favites, Goniastrea.

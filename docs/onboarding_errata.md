@@ -35,6 +35,7 @@ The runs saved from `weak_classification.ipynb` itself use a sample of 50 images
 
 - **Wording.** The guide says "among 129 sharp, high-confidence Millepora predictions, only 58.9% were correct (66 yes, 46 no, 17 uncertain)". The notebook computes `yes / (yes + no)`, which is 66 / 112 = 58.9% (MA 8: `precision = n_yes / (n_yes + n_no)`). The 17 "uncertain" crops are excluded. Out of all 129 crops, 66 is 51.2%. The "41.1% false positives" in the guide is 46 / 112.
 - **Setup.** The predictions are V2's 24-genus predictions at confidence 0.85 or higher, so without the soft-coral classes the number may differ. "Sharp" there means an unmasked bbox crop with Laplacian variance at least 150 (MA 5 and 9), not the pipeline's masked crop at 80.
+- **Who judged.** The yes/no/unsure calls were made by a non-expert analyst comparing the crops with reference pictures of Millepora, not by the coral expert. The PDF pages showed the model's confidence and runner-up next to each crop. The figure is a provisional agreement rate, not a measured precision.
 
 ## 6. Smaller points
 

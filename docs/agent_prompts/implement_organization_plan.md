@@ -262,11 +262,17 @@ Each item below is its own commit. Each commit message and the session memory fi
    - every `keep == True` crop in the manifest;
    - predictions as parquet plus embeddings as `.npz`, both with meta.
    - **Ask the user to run it.** It takes about 2 hours on a T4.
-5. **Millepora re-analysis** (after step 4's output exists).
+5. **Millepora re-analysis** (after step 4's output exists). The old judgments were made by a **non-expert analyst** who saw the model's answer, so treat them as provisional labels, not ground truth.
    - Read `v2_pipeline/millepora_sharp_audit.csv` from Drive. Its columns: image_name, coral_id, bbox, area, confidence, runner_up, sharpness, is_true_millepora, actual_genus, notes. 129 rows, judged yes/no/?.
-   - Join it to the new predictions by key.
-   - Report precision on the overlap, with the same filters as the original audit: confidence ≥ 0.85 and bbox sharpness ≥ 150.
-   - Export, for review, only the new Millepora predictions that haven't been judged yet.
+   - Join it to the new predictions by key. Report the agreement rate on the overlap as a range: unsure counted as wrong, then unsure counted as right. Label it "non-expert agreement", not precision.
+   - Build a **blind, mixed review sheet** with `labeling.py`:
+     - Sample new 20-genus Millepora predictions randomly across all confidence levels. Leave out crops already judged.
+     - Add about as many randomly chosen crops that the model did *not* call Millepora.
+     - Shuffle. Show no prediction, confidence or runner-up.
+     - Columns: key, `is_millepora` (yes/no/unsure), `actual_genus` (required when "no"), notes.
+     - Export a hidden answer key separately.
+   - Mark a subset of about 40 crops for Assaf, including every crop the old audit marked unsure. This measures how often the analyst agrees with the expert.
+   - Add the scoring function: precision and recall estimates with intervals, analyst-vs-expert agreement, and the confusion list from `actual_genus`.
 6. **Expert evaluation wired in.** Running `evaluate` on the baseline against the expert set and the ground-truth distribution gives a report in `<run>/reports/`.
 7. **Drive cleanup.** These are defective (plan §2.1 #1-2) and their deletion is approved:
    - `results_all/iou60_sta55_pts32/cleaned_images_crops/`
