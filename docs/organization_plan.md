@@ -242,6 +242,8 @@ Decided on 2026-10-11:
 
 ## 6. Parked for the algorithm discussion
 
+All algorithm ideas, with evidence and priorities, are collected in **`docs/algorithm_ideas.md`**. The list below is the original short version.
+
 These came up while reading but are algorithm questions, not organization ones:
 
 - **Free CoralSCOP outputs.** CoralSCOP already produces a coral/background decision and a per-mask feature vector, and the pipeline discards both.
