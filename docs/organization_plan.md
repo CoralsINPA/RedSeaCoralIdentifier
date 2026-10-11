@@ -164,7 +164,7 @@ RedSeaCoralIdentifier/
 ### 3.4 Conventions (the rules that prevent the bugs in §2.1)
 
 1. **One coordinate frame:** the mask JSON's `width × height`. Photos are only ever loaded through `images.load_in_mask_frame`. Fixes #1.
-2. **One coral key:** `(image_name, coral_id)`, written as `IMG_4033#14`. Every table, embedding file and review sheet uses it. Fixes #3.
+2. **One coral key:** `(image_name, coral_id)`, written as `IMG_4033.JPG#14`. Every table, embedding file and review sheet uses it. Fixes #3.
 3. **Labels are tied to a segmentation run.** `coral_id`s change whenever SAM is re-run, so expert labels also store the run name and the bbox. That way they can be re-matched to new masks by IoU.
 4. **Filter once and keep the reasons.** Each run gets one `manifest.parquet` with a row per mask: key, bbox, area, predicted_iou, stability, aspect, `contained_by`, sharpness, visible_px, `keep` and `reject_reason`. Every downstream step reads `keep == True` from it. This replaces the four filtered sets.
 5. **Constants live in `configs/`, not in notebooks.** A notebook may override a field for an experiment, and the resolved config is saved next to the output.
