@@ -78,6 +78,26 @@ def format_summary(summary: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def paste_block(summary: Mapping[str, Any], extra: Mapping[str, Any] | None = None) -> str:
+    """The compact JSON the user pastes into the next session (confusion cells left out)."""
+    body = {
+        "overall": summary["overall"],
+        **(extra or {}),
+        "checks": {
+            letter: {
+                "status": check["status"],
+                "rows": [
+                    {k: row[k] for k in ("name", "status", "expected", "actual")}
+                    for row in check["rows"]
+                    if row["kind"] == "check"
+                ],
+            }
+            for letter, check in summary["checks"].items()
+        },
+    }
+    return json.dumps(body, indent=1, default=str)
+
+
 def environment_info() -> dict[str, Any]:
     """Versions that matter for parity, read without importing the heavy packages."""
     import platform

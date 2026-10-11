@@ -122,6 +122,21 @@ def check_geometric(
 # --------------------------------------------------------------------------- B
 
 
+def manifest_counts(manifest: pd.DataFrame) -> dict[str, int]:
+    """Counts the legacy loop printed: masks before the filter, after it, and crops kept.
+
+    The legacy loop skipped an absent or unreadable photo without counting its masks, so the
+    images with an `image_missing` row are left out here too.
+    """
+    absent = set(manifest.loc[manifest["reject_reason"] == "image_missing", "image_name"])
+    seen = manifest[~manifest["image_name"].isin(absent)]
+    return {
+        "masks": len(seen),
+        "after_filter": int(seen["stage1_reason"].isna().sum()),
+        "crops": int(seen["keep"].sum()),
+    }
+
+
 def check_sample_counts(
     legacy: Mapping[str, int], new: Mapping[str, int], expected: Mapping[str, Any] = EXPECTED
 ) -> list[CheckResult]:
@@ -178,14 +193,14 @@ def check_zero_shot_parity(
 
 
 def check_against_drive_csv(comparison: PredictionComparison) -> list[CheckResult]:
-    """Check B, informational: the same predictions against the file saved on Drive."""
+    """Check B, informational: coralid (a) against the file saved on Drive (b)."""
     c = comparison
     return [
         info(
             "B",
             "B6 coralid vs Drive coral_weak_labels_..._best.csv (rewritten 2026-10-11)",
             {
-                "rows": [c.n_a, c.n_b],
+                "rows_coralid_drive": [c.n_a, c.n_b],
                 "keys_equal": c.keys_equal,
                 "top1": c.top1_agreement,
                 "max_abs_diff": c.max_abs_diff,

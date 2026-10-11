@@ -22,11 +22,13 @@ from coralid.parity import (
     check_sample_counts,
     check_zero_shot_parity,
     equal,
+    manifest_counts,
 )
 from coralid.parity_report import (
     format_summary,
     format_table,
     next_free_path,
+    paste_block,
     summarize,
     write_report,
 )
@@ -110,6 +112,20 @@ def test_sample_counts_compare_both_implementations_and_the_record():
     assert "may have changed" in rows["B2"].detail  # but the data is not what it was
     rows = _by_name(check_sample_counts(recorded, {**recorded, "crops": 841}))
     assert rows["B1"].status == FAIL
+
+
+def test_manifest_counts_skip_images_whose_photo_is_missing():
+    manifest = pd.DataFrame(
+        {
+            "image_name": ["A", "A", "A", "B", "B", "C"],
+            "stage1_reason": [None, None, "area", None, "aspect", None],
+            "keep": [True, False, False, False, False, False],
+            "reject_reason": [None, "blurry", "area", "image_missing", "aspect", "image_missing"],
+        }
+    )
+    # B and C have a missing photo: the legacy loop never counted their masks
+    assert manifest_counts(manifest) == {"masks": 3, "after_filter": 2, "crops": 1}
+    assert manifest_counts(manifest.iloc[:3]) == {"masks": 3, "after_filter": 2, "crops": 1}
 
 
 def _table(n=200, seed=0):
@@ -257,6 +273,19 @@ def test_summary_text_lists_the_failures():
     assert text.splitlines()[0] == "PARITY SUMMARY: FAIL"
     assert "A  FAIL" in text and "B  PASS" in text and "D  NOT RUN" in text
     assert "FAILED A1 files: expected 4, got 3" in text
+
+
+def test_paste_block_is_compact_json_without_confusion_cells():
+    results = check_expert_confusion(_assaf_report(), ASSAF, EXPECTED_STATUS, (39, 57, 62))
+    summary = summarize([*results, equal("A", "A1", 1714, 1714)])
+    block = json.loads(paste_block(summary, {"commit": "abc123"}))
+    assert block["overall"] == "PARTIAL" and block["commit"] == "abc123"
+    names = [r["name"] for r in block["checks"]["D"]["rows"]]
+    assert names[0].startswith("D1") and not any(n.startswith("cell ") for n in names)
+    assert block["checks"]["A"]["rows"] == [
+        {"name": "A1", "status": "PASS", "expected": 1714, "actual": 1714}
+    ]
+    assert block["checks"]["B"] == {"status": "NOT RUN", "rows": []}
 
 
 def test_reports_are_new_files_and_never_overwrite(tmp_path):

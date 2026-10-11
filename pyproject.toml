@@ -63,7 +63,10 @@ line-length = 100
 target-version = "py310"
 src = ["src", "."]
 # The legacy notebooks are frozen reference evidence (Colab magics, copy-pasted cells).
-extend-exclude = ["notebooks/legacy", "third_party"]
+# The parity notebook holds one cell copied verbatim from a legacy notebook; formatting or
+# linting it would change the legacy text, so the whole notebook is left alone.
+extend-exclude = ["notebooks/legacy", "notebooks/parity_check.ipynb", "third_party"]
+force-exclude = true  # pre-commit passes file names; the excludes above must still apply
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
