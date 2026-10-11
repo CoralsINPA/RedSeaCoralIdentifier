@@ -242,3 +242,21 @@ def test_a_perfect_simulated_analyst_gets_the_truth_inside_the_interval():
     assert est["precision"]["point"] == pytest.approx(true_precision, abs=0.08)
     assert est["precision"] == score.estimates["unsure_as_yes"]["precision"]  # no unsure answers
     assert score.false_positive_genera["actual_genus"].tolist() == ["Porites"]
+
+
+def test_the_score_is_saved_as_a_new_folder_every_time(tmp_path):
+    from coralid.review_scoring import write_blind_score
+
+    key, analyst, meta = _scenario()
+    score = score_blind_review(analyst, key, meta)
+    first = write_blind_score(score, tmp_path, "millepora_blind_x", date="2026-10-12")
+    second = write_blind_score(score, tmp_path, "millepora_blind_x", date="2026-10-12")
+    assert first.name == "blind_score_millepora_blind_x_2026-10-12"
+    assert second.name == "blind_score_millepora_blind_x_2026-10-12_2"
+    assert sorted(p.name for p in first.iterdir()) == [
+        "false_positive_genera.csv",
+        "missed_as.csv",
+        "summary.json",
+    ]
+    body = json.loads((first / "summary.json").read_text())
+    assert body["genus"] == GENUS and body["answered"]["yes"] > 0

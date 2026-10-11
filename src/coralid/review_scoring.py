@@ -21,7 +21,11 @@ completed sheet for his subset. Outputs:
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -249,3 +253,28 @@ def _population_size(rate: dict[str, Any] | None) -> int:
 def _count(values: pd.Series, name: str) -> pd.DataFrame:
     counts = values.value_counts()
     return pd.DataFrame({name: counts.index.to_list(), "count": counts.to_numpy()})
+
+
+def write_blind_score(
+    score: BlindScore,
+    reports_dir: str | os.PathLike[str],
+    name: str,
+    date: str | None = None,
+) -> Path:
+    """Write a score as new files in `<reports_dir>/blind_score_<name>_<date>/`.
+
+    `summary.json` and the two confusion lists as CSV. An existing folder gets a `_2`, `_3`...
+    suffix; no file is overwritten. Returns the folder.
+    """
+    date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    folder = Path(reports_dir) / f"blind_score_{name}_{date}"
+    n = 1
+    while folder.exists():
+        n += 1
+        folder = Path(reports_dir) / f"blind_score_{name}_{date}_{n}"
+    folder.mkdir(parents=True)
+    score.false_positive_genera.to_csv(folder / "false_positive_genera.csv", index=False)
+    score.missed_as.to_csv(folder / "missed_as.csv", index=False)
+    with open(folder / "summary.json", "x", encoding="utf-8") as f:
+        f.write(json.dumps(score.to_dict(), indent=2, default=str) + "\n")
+    return folder
