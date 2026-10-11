@@ -8,6 +8,7 @@ This folder holds project memory and conclusions that should outlive a single ag
 2. `sessions/`, newest first: what each session did, verified and concluded.
    - `sessions/2026-10-11_stage_A2.md`: Stage A2 (zero-shot path, evaluation, resumable runner, the Colab parity notebook), what was verified, the real-data check that was skipped, and what to run next.
    - `sessions/2026-10-11_stage_A1.md`: Stage A1 of the refactor (packaging, tooling, core data modules), what was verified, and the bugs found but not fixed.
+   - `sessions/2026-10-11_parity_run_1.md`: first Colab parity run (portrait photos, expert CSV vs matrix).
    - `sessions/2026-10-11_code_review_and_org_plan.md`: full code read, organization plan, user decisions.
 3. The snapshots, for background:
 
@@ -64,7 +65,8 @@ Last updated 2026-10-11.
 **Next**
 - The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1 and A2 are written; the user must now run the parity notebook in Colab** and paste back its summary, then Stage B starts (only if Checks A and B pass).
 - Stage B's 20-genus run on all images is the **new baseline**. It builds on the manifest that Check C saves to `<run>/manifest/`.
-- Don't expect the refactor alone to raise accuracy much: the bugs were mostly in side outputs, not in the zero-shot path.
+- **Correction from the first parity run:** 221 of 1,714 photos (13%) are **portrait**. The legacy classification, review and audit code squashed them to 2560×1920 without moving the boxes, so their crops were wrong or dropped. The new code fixes this, so the new baseline may genuinely improve on those images. See `sessions/2026-10-11_parity_run_1.md`.
+- **The expert CSV is the reference:** 77 rows, **36/54 = 66.7%** in-set. The memory matrix (39/57) is a slightly different version of the same review.
 - Then the algorithm plan.
 
 **Constraints**

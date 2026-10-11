@@ -24,7 +24,9 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
 
 ## Key facts
 - Active run name: `iou60_sta55_pts32` (SAM points_per_side 32, pred_iou 0.60, stability 0.55, min_mask_region_area 100).
-- Filters: MIN_AREA 25,000, MAX_ASPECT_RATIO 3.0, CONTAINMENT_THRESH 0.80, SHARPNESS_THRESHOLD 80. Images are resized to 2560x1920.
+- Filters: MIN_AREA 25,000, MAX_ASPECT_RATIO 3.0, CONTAINMENT_THRESH 0.80, SHARPNESS_THRESHOLD 80.
+- Mask frame: the long side is 2560. 1,493 photos are 2560x1920 (landscape) and 221 are 1920x2560 (portrait). Always load photos in the JSON's frame (`coralid.images.load_in_mask_frame`). The legacy code forced 2560x1920, which mis-cropped every portrait photo.
+- Expert test set results: the CSV has 77 rows; v1 accuracy on it is 36/54 = 66.7% in-set.
 - Default model: ReefNet fine-tuned BioCLIP (ViT-B/16); alternatives are BioCLIP 2 and SigLIP 2.
 - Millepora check: a non-expert analyst (not Assaf) judged 66 of 112 decided crops correct (58.9%; 51-64% counting the 17 unsure). The crops were V2's sharp, confidence >= 0.85 Millepora predictions, and the reviewer saw the model's answer. Treat the figure as provisional, and not as the 20-genus precision.
 - Expert test set: 78 hand-labeled crops (`assaf_expert_test_set.csv`), joined on `(image_name, coral_id)`.

@@ -246,23 +246,26 @@ If parity failed, don't start fixing. Diagnose the cause from the pasted results
 
 Each item below is its own commit. Each commit message and the session memory file state which numbers change, from what to what.
 
-1. **Frame audit follow-up.** If check A found JSON frames other than 2560×1920, list the affected images. The new code already handles them correctly; the legacy outputs for those images were distorted. Record which existing outputs are affected.
-2. **One sharpness definition.**
+1. **Frame audit follow-up.** Check A found **221 portrait frames (1920×2560)** besides 1,493 landscape ones. The legacy code squashed portrait photos to 2560×1920 without moving the bboxes, so their crops were wrong or dropped (`docs/agent_memory/sessions/2026-10-11_parity_run_1.md`).
+   - **Check C parity:** add a landscape-only check. The new manifest's kept keys on landscape images must equal the keys in `v2_pipeline/v2_weak_labels_expanded.csv` for those images. Report portrait images separately, as INFO.
+   - **Portrait-impact report:** list which rows of `assaf_expert_test_set.csv` and of `v2_pipeline/millepora_sharp_audit.csv` come from portrait images, and how many of the expert "unidentifiable" rows are among them.
+2. **Expert status from `is_correct`.** When `expert_genus` is empty, derive the status from `is_correct`: `unidentifiable`, or `MISSING_LABEL` → `missing`. Today all 18 such rows become `missing`. Update the Check D expectations to the real CSV: 77 rows, 54 in-set, 5 soft corals, 36 correct, and the unidentifiable / missing split once confirmed. Keep the memory matrix only as a reference.
+3. **One sharpness definition.**
    - Keep the pipeline definition as the default: masked crop, black background, Laplacian variance ≥ 80. This changes no numbers.
    - Add a `sharpness_crop: masked | bbox` option, with MA's definition (unmasked bbox crop, ≥ 150) available under the `bbox` setting.
    - Document in `filters.py` that masked-crop sharpness also responds to the mask outline.
    - Changing the default is an algorithm decision: don't make it.
-3. **`labeling.py`.** Per plan §3.3:
+4. **`labeling.py`.** Per plan §3.3:
    - review-sheet export;
    - ingesting completed reviews by key;
    - a generic per-genus audit sheet and summary. The audit sheet **must** have an `actual_genus` column, required when the answer is "no".
    - Tier logic only if trivial; the 20-genus workflow doesn't need V2's tiers yet.
-4. **The 20-genus baseline job**, as a CLI command (see `cli.py` below; start the module now with just this command) and a notebook cell:
+5. **The 20-genus baseline job**, as a CLI command (see `cli.py` below; start the module now with just this command) and a notebook cell:
    - finetuned-bioclip, `taxonomy_v1`, masked crops;
    - every `keep == True` crop in the manifest;
    - predictions as parquet plus embeddings as `.npz`, both with meta.
    - **Ask the user to run it.** It takes about 2 hours on a T4.
-5. **Millepora re-analysis** (after step 4's output exists). The old judgments were made by a **non-expert analyst** who saw the model's answer, so treat them as provisional labels, not ground truth.
+6. **Millepora re-analysis** (after step 5's output exists). The old judgments were made by a **non-expert analyst** who saw the model's answer, so treat them as provisional labels, not ground truth.
    - Read `v2_pipeline/millepora_sharp_audit.csv` from Drive. Its columns: image_name, coral_id, bbox, area, confidence, runner_up, sharpness, is_true_millepora, actual_genus, notes. 129 rows, judged yes/no/?.
    - Join it to the new predictions by key. Report the agreement rate on the overlap as a range: unsure counted as wrong, then unsure counted as right. Label it "non-expert agreement", not precision.
    - Build a **blind, mixed review sheet** with `labeling.py`:
@@ -273,8 +276,8 @@ Each item below is its own commit. Each commit message and the session memory fi
      - Export a hidden answer key separately.
    - Mark a subset of about 40 crops for Assaf, including every crop the old audit marked unsure. This measures how often the analyst agrees with the expert.
    - Add the scoring function: precision and recall estimates with intervals, analyst-vs-expert agreement, and the confusion list from `actual_genus`.
-6. **Expert evaluation wired in.** Running `evaluate` on the baseline against the expert set and the ground-truth distribution gives a report in `<run>/reports/`.
-7. **Drive cleanup.** These are defective (plan §2.1 #1-2) and their deletion is approved:
+7. **Expert evaluation wired in.** Running `evaluate` on the baseline against the expert set and the ground-truth distribution gives a report in `<run>/reports/`.
+8. **Drive cleanup.** These are defective (plan §2.1 #1-2) and their deletion is approved:
    - `results_all/iou60_sta55_pts32/cleaned_images_crops/`
    - `cleaned_jsons_filtered/` (in the CoralsMasking root)
    - `results_all/iou60_sta55_pts32/coral_dino_encodings.csv`
