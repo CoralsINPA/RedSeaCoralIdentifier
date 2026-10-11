@@ -1,0 +1,3 @@
+[submodule "third_party/CoralSCOP"]
+	path = third_party/CoralSCOP
+	url = https://github.com/zhengziqiang/CoralSCOP
