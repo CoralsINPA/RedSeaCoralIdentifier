@@ -12,6 +12,8 @@ completed sheet for his subset. Outputs:
   ends of the two, so it is wide on purpose.
 - Every figure comes twice, with the unsure counted as **no** and as **yes**; the true value lies
   in between (for recall, the two ends cross, so read the range).
+- **Precision by confidence band**, from the random sample of the baseline's calls (the band
+  edges are 0.5, 0.7 and 0.85; the old audit looked only at 0.85 and above).
 - **Analyst against expert**: agreement on the crops both answered, by answer and by Cohen's
   kappa. If it is high the analyst can label for the expert; if it is low the figures above are
   the analyst's opinion only.
@@ -162,6 +164,41 @@ def _agreement(analyst: pd.DataFrame, expert: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+CONFIDENCE_EDGES = (0.0, 0.5, 0.7, 0.85, 1.0 + 1e-9)
+
+
+def _by_confidence(sample: pd.DataFrame) -> pd.DataFrame:
+    """The yes-rate of the random sample of genus calls, per confidence band."""
+    rows = []
+    bands = zip(CONFIDENCE_EDGES[:-1], CONFIDENCE_EDGES[1:], strict=True)
+    for low, high in bands:
+        part = sample[(sample["confidence"] >= low) & (sample["confidence"] < high)]
+        yes, no, unsure = (int((part["answer"] == a).sum()) for a in (YES, NO, UNSURE))
+        decided = yes + no
+        interval = wilson_interval(yes, decided)
+        rows.append(
+            {
+                "band": f"{low:.2f}-{min(high, 1.0):.2f}",
+                "answered": yes + no + unsure,
+                "yes": yes,
+                "no": no,
+                "unsure": unsure,
+                "share_yes_of_decided": yes / decided if decided else None,
+                "ci95_lo": interval[0] if interval else None,
+                "ci95_hi": interval[1] if interval else None,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _calls_sample(key: pd.DataFrame) -> pd.DataFrame:
+    """The random sample of the baseline's genus calls that has a confidence."""
+    sample = key[key["selection"] == PRED_RANDOM]
+    if "confidence" not in key.columns:
+        return sample.iloc[0:0].assign(confidence=pd.Series(dtype=float))
+    return sample[sample["confidence"].notna()]
+
+
 @dataclass
 class BlindScore:
     """The result of `score_blind_review`."""
@@ -171,6 +208,7 @@ class BlindScore:
     answered: dict[str, int]  # yes / no / unsure / pending, on the analyst's sheet
     estimates: dict[str, dict[str, Any]]  # unsure_as_no / unsure_as_yes -> precision, miss, recall
     expert_agreement: dict[str, Any] | None
+    precision_by_confidence: pd.DataFrame  # the random sample of genus calls, by band
     false_positive_genera: pd.DataFrame  # what the "no" crops really are
     missed_as: pd.DataFrame  # what the baseline called the genus crops it missed
     notes: list[str] = field(default_factory=lambda: list(NOTES))
@@ -183,6 +221,7 @@ class BlindScore:
             "answered": self.answered,
             "estimates": self.estimates,
             "expert_agreement": self.expert_agreement,
+            "precision_by_confidence": self.precision_by_confidence.to_dict("records"),
             "false_positive_genera": self.false_positive_genera.to_dict("records"),
             "missed_as": self.missed_as.to_dict("records"),
             "notes": self.notes,
@@ -241,6 +280,7 @@ def score_blind_review(
         answered=answered,
         estimates=estimates,
         expert_agreement=_agreement(a, e) if e is not None else None,
+        precision_by_confidence=_by_confidence(_calls_sample(key)),
         false_positive_genera=_count(
             wrong_calls["final_genus"].fillna("(not given)"), "actual_genus"
         ),
@@ -265,8 +305,8 @@ def write_blind_score(
 ) -> Path:
     """Write a score as new files in `<reports_dir>/blind_score_<name>_<date>/`.
 
-    `summary.json` and the two confusion lists as CSV. An existing folder gets a `_2`, `_3`...
-    suffix; no file is overwritten. Returns the folder.
+    `summary.json`, the precision by confidence band and the two confusion lists as CSV. An
+    existing folder gets a `_2`, `_3`... suffix; no file is overwritten. Returns the folder.
     """
     date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     folder = Path(reports_dir) / f"blind_score_{name}_{date}"
@@ -275,6 +315,7 @@ def write_blind_score(
         n += 1
         folder = Path(reports_dir) / f"blind_score_{name}_{date}_{n}"
     folder.mkdir(parents=True)
+    score.precision_by_confidence.to_csv(folder / "precision_by_confidence.csv", index=False)
     score.false_positive_genera.to_csv(folder / "false_positive_genera.csv", index=False)
     score.missed_as.to_csv(folder / "missed_as.csv", index=False)
     with open(folder / "summary.json", "x", encoding="utf-8") as f:

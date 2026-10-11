@@ -115,6 +115,28 @@ def test_precision_miss_rate_and_recall_follow_the_hand_calculation():
     json.dumps(score.to_dict(), allow_nan=False)
 
 
+def test_precision_by_confidence_band_uses_the_random_sample_of_calls():
+    key, analyst, meta = _scenario()
+    confidence = {
+        f"S.JPG#{i}": c for i, c in enumerate([0.9, 0.9, 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.95, 0.3])
+    }
+    key["confidence"] = key["key"].map(confidence)
+    bands = score_blind_review(analyst, key, meta).precision_by_confidence.set_index("band")
+    assert bands.index.tolist() == ["0.00-0.50", "0.50-0.70", "0.70-0.85", "0.85-1.00"]
+    assert bands.loc["0.00-0.50", ["answered", "yes", "no", "unsure"]].tolist() == [3, 0, 2, 1]
+    assert bands.loc["0.50-0.70", ["answered", "yes", "no", "unsure"]].tolist() == [2, 2, 0, 0]
+    assert bands.loc["0.70-0.85", ["answered", "yes", "no", "unsure"]].tolist() == [2, 2, 0, 0]
+    assert bands.loc["0.85-1.00", ["answered", "yes", "no", "unsure"]].tolist() == [3, 2, 1, 0]
+    assert bands.loc["0.85-1.00", "share_yes_of_decided"] == pytest.approx(2 / 3)
+    lo, hi = wilson_interval(2, 3)
+    assert bands.loc["0.85-1.00", "ci95_lo"] == pytest.approx(lo)
+    assert bands.loc["0.85-1.00", "ci95_hi"] == pytest.approx(hi)
+    assert bands.loc["0.00-0.50", "share_yes_of_decided"] == 0
+    # without a confidence column in the key the table is empty but present
+    plain = score_blind_review(analyst, _scenario()[0], meta).precision_by_confidence
+    assert plain["answered"].tolist() == [0, 0, 0, 0]
+
+
 def test_pending_answers_are_left_out_not_counted_as_no():
     key, analyst, meta = _scenario()
     answers = analyst.table.set_index("key")["answer"].to_dict()
@@ -262,6 +284,7 @@ def test_the_score_is_saved_as_a_new_folder_every_time(tmp_path):
     assert sorted(p.name for p in first.iterdir()) == [
         "false_positive_genera.csv",
         "missed_as.csv",
+        "precision_by_confidence.csv",
         "summary.json",
     ]
     body = json.loads((first / "summary.json").read_text())
