@@ -79,7 +79,11 @@ def format_summary(summary: Mapping[str, Any]) -> str:
 
 
 def paste_block(summary: Mapping[str, Any], extra: Mapping[str, Any] | None = None) -> str:
-    """The compact JSON the user pastes into the next session (confusion cells left out)."""
+    """The compact JSON the user pastes into the next session.
+
+    One entry per row with its expected and actual value (and its detail, when it has one);
+    the per-cell confusion rows are left out.
+    """
     body = {
         "overall": summary["overall"],
         **(extra or {}),
@@ -87,7 +91,11 @@ def paste_block(summary: Mapping[str, Any], extra: Mapping[str, Any] | None = No
             letter: {
                 "status": check["status"],
                 "rows": [
-                    {k: row[k] for k in ("name", "status", "expected", "actual")}
+                    {
+                        k: row[k]
+                        for k in ("name", "status", "expected", "actual", "detail")
+                        if row[k] != ""
+                    }
                     for row in check["rows"]
                     if row["kind"] == "check"
                 ],

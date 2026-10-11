@@ -105,11 +105,12 @@ def test_geometric_checks():
 def test_sample_counts_compare_both_implementations_and_the_record():
     recorded = {"masks": 2337, "after_filter": 1054, "crops": 842}
     rows = _by_name(check_sample_counts(recorded, dict(recorded)))
-    assert rows["B1"].status == PASS and rows["B2"].status == INFO and rows["B2"].detail == ""
+    assert rows["B1"].status == PASS and rows["B2"].status == PASS and rows["B2"].detail == ""
     drift = {"masks": 2300, "after_filter": 1040, "crops": 830}
     rows = _by_name(check_sample_counts(drift, dict(drift)))
     assert rows["B1"].status == PASS  # the two implementations still agree
-    assert "may have changed" in rows["B2"].detail  # but the data is not what it was
+    assert rows["B2"].status == INFO  # the data is not what it was: noted, not a failure
+    assert "may have changed" in rows["B2"].detail
     rows = _by_name(check_sample_counts(recorded, {**recorded, "crops": 841}))
     assert rows["B1"].status == FAIL
 
@@ -285,6 +286,9 @@ def test_paste_block_is_compact_json_without_confusion_cells():
     assert block["checks"]["A"]["rows"] == [
         {"name": "A1", "status": "PASS", "expected": 1714, "actual": 1714}
     ]
+    detailed = summarize([equal("B", "B9", 1, 2, "worst crop IMG_1.JPG#3")])
+    (row,) = json.loads(paste_block(detailed))["checks"]["B"]["rows"]
+    assert row["detail"] == "worst crop IMG_1.JPG#3"
     assert block["checks"]["B"] == {"status": "NOT RUN", "rows": []}
 
 

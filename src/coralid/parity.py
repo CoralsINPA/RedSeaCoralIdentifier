@@ -140,7 +140,12 @@ def manifest_counts(manifest: pd.DataFrame) -> dict[str, int]:
 def check_sample_counts(
     legacy: Mapping[str, int], new: Mapping[str, int], expected: Mapping[str, Any] = EXPECTED
 ) -> list[CheckResult]:
-    """Check B, counts: masks before / after the filter and crops, for both implementations."""
+    """Check B, counts: masks before / after the filter and crops, for both implementations.
+
+    B1 (required) compares coralid with the legacy code run live. B2 compares that live run
+    with the numbers recorded in 2026-10: PASS when they match, INFO (never FAIL) when the
+    Drive data has changed since.
+    """
     keys = ("masks", "after_filter", "crops")
     recorded = [expected["sample_masks"], expected["sample_after_filter"], expected["sample_crops"]]
     new_counts, legacy_counts = [new[k] for k in keys], [legacy[k] for k in keys]
@@ -152,7 +157,14 @@ def check_sample_counts(
             new_counts,
             legacy_counts,
         ),
-        info("B", "B2 live legacy run vs the recorded numbers", legacy_counts, recorded, differs),
+        CheckResult(
+            "B",
+            "B2 live legacy run reproduces the recorded numbers",
+            PASS if legacy_counts == recorded else INFO,  # a difference is data drift, not a bug
+            recorded,
+            legacy_counts,
+            differs,
+        ),
     ]
 
 
