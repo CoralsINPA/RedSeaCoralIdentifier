@@ -23,9 +23,10 @@ The extended V2 pipeline (24 genera, tiered review, Millepora audit inputs) is i
 ## Repository layout
 
 ```
-src/coralid/          Installable package: config, masks, images, crops, filters, manifest (more to come)
-configs/              Run configuration (iou60_sta55_pts32.yaml)
+src/coralid/          Installable package: masks, crops, filters, manifest, zero-shot scoring, evaluation (more to come)
+configs/              Run configuration (iou60_sta55_pts32.yaml) and the genus label set and prompts (genera.yaml)
 tests/                CPU-only tests on synthetic data (no data or GPU needed)
+notebooks/parity_check.ipynb  Colab notebook that checks the package against the legacy notebooks
 notebooks/legacy/     The original Colab notebooks and the V2 notebook, frozen as reference
 third_party/CoralSCOP Submodule: upstream CoralSCOP segmentation model
 docs/                 Onboarding guide, its errata, the organization plan, agent memory

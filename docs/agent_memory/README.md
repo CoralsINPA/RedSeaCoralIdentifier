@@ -6,6 +6,7 @@ This folder holds project memory and conclusions that should outlive a single ag
 
 1. **Current understanding** (below): the short version, updated every session.
 2. `sessions/`, newest first: what each session did, verified and concluded.
+   - `sessions/2026-10-11_stage_A2.md`: Stage A2 (zero-shot path, evaluation, resumable runner, the Colab parity notebook), what was verified, the real-data check that was skipped, and what to run next.
    - `sessions/2026-10-11_stage_A1.md`: Stage A1 of the refactor (packaging, tooling, core data modules), what was verified, and the bugs found but not fixed.
    - `sessions/2026-10-11_code_review_and_org_plan.md`: full code read, organization plan, user decisions.
 3. The snapshots, for background:
@@ -51,13 +52,18 @@ Last updated 2026-10-11.
 - **Taxonomy drift.** Most Indo-Pacific *Favia* were moved to *Dipsastraea*, yet `ground_truth_genus_counts.csv` lists both, so the survey itself mixes old and new names.
 
 **Code**
-- **State (2026-10-11):** Stage A1 of the refactor is done. The `coralid` package exists (`src/coralid/`: `config`, `masks`, `images`, `crops`, `filters`, `manifest`) with 117 CPU tests, CI, ruff and pre-commit. The legacy notebooks and V2 are frozen in `notebooks/legacy/`. It reproduces the legacy behavior exactly (checked against verbatim copies of the notebook code), and containment now runs on the RLE. Nothing has been run on real data yet: that is the Stage A2 parity check in Colab.
-- **Found, not fixed:** SAM's bbox is one pixel short (`w = right - left`), a black photo pixel inside a mask counts as not visible, and the V2 notebook carries Colab account metadata (see `sessions/2026-10-11_stage_A1.md`).
+- **State (2026-10-11):** Stages A1 and A2 of the refactor are written. The `coralid` package (`src/coralid/`) has:
+  - the data path: `config`, `masks`, `images`, `crops`, `filters`, `manifest`;
+  - the zero-shot path: `genera` (with `configs/genera.yaml`), `encoders`, `zero_shot`, `batch` (resumable runner);
+  - scoring: `evaluation`, `predictions`, and the pass/fail logic of the parity notebook (`parity`, `parity_report`).
+  It has 232 CPU tests (two need torch), CI, ruff and pre-commit. The legacy notebooks and V2 are frozen in `notebooks/legacy/`. It reproduces the legacy behavior (checked against verbatim copies of the notebook code, and by a local dry run of the parity notebook with a stand-in model). Containment runs on the RLE.
+- **Nothing has been run on real data yet.** `notebooks/parity_check.ipynb` does that in Colab (Checks A, B, D in about 20 minutes, then Check C in about 2 hours, resumable). Its summary cell prints a JSON block to paste into the next session. The real expert-set check (78 rows, 39 correct, matrix cell for cell) was **not** done by the agent; it is Check D.
+- **Found, not fixed:** SAM's bbox is one pixel short (`w = right - left`), a black photo pixel inside a mask counts as not visible, running WC cell 14 overwrites a CSV and a PNG on Drive, `configs/` is not part of a non-editable install, and the V2 notebook carries Colab account metadata (see the two Stage sessions).
 - **Outputs not to trust:** `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 features. All three cut crops from the wrong part of the photo.
 
 **Next**
-- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1 is done; A2 is next** (zero-shot path, evaluation, batch runner, parity notebook), and it needs the user to run the parity notebook in Colab.
-- Stage B's 20-genus run on all images is the **new baseline**.
+- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1 and A2 are written; the user must now run the parity notebook in Colab** and paste back its summary, then Stage B starts (only if Checks A and B pass).
+- Stage B's 20-genus run on all images is the **new baseline**. It builds on the manifest that Check C saves to `<run>/manifest/`.
 - Don't expect the refactor alone to raise accuracy much: the bugs were mostly in side outputs, not in the zero-shot path.
 - Then the algorithm plan.
 

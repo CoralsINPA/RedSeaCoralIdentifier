@@ -3,12 +3,17 @@
 Genus-level coral identification for Red Sea reef photos: segment corals (CoralSCOP/SAM), then classify each crop with zero-shot CLIP-family models. See `README.md` for the overview and `docs/Coral_Pipeline_Onboarding_Guide.pdf` for the full Drive/notebook map.
 
 ## Layout
-- `src/coralid/`: the installable package that is replacing the notebooks (plan: `docs/organization_plan.md`, staged prompts: `docs/agent_prompts/implement_organization_plan.md`). Built so far: `config`, `masks`, `images`, `crops`, `filters`, `manifest`. Tests are in `tests/` (synthetic data only), the run config in `configs/iou60_sta55_pts32.yaml`.
+- `src/coralid/`: the installable package that is replacing the notebooks (plan: `docs/organization_plan.md`, staged prompts: `docs/agent_prompts/implement_organization_plan.md`). Built so far (Stages A1 and A2):
+  - data path: `config`, `masks`, `images`, `crops`, `filters`, `manifest`;
+  - zero-shot path: `genera`, `encoders`, `zero_shot`, `batch` (resumable runner);
+  - scoring: `evaluation` and `predictions` (expert set, legacy CSV adapter, prediction comparison), `parity` and `parity_report` (the pass/fail logic of the parity notebook).
+  - Tests are in `tests/` (synthetic data only). Configs: `configs/iou60_sta55_pts32.yaml` (the run) and `configs/genera.yaml` (the `hard20` label set and the prompt sets, copied verbatim from the legacy notebooks).
 - `notebooks/legacy/`: the frozen reference notebooks, outputs included. The three Colab notebooks and V2 are here:
   - `CoralMasking.ipynb`: segmentation + DINOv2/DinoVdeau embeddings + t-SNE/UMAP/K-Means.
   - `weak_classification.ipynb`: zero-shot genus labels (20 hard-coral genera). The "breakthrough" notebook. Cells 25-34 are scratch/debug.
   - `Millepora_Analysis.ipynb`: Millepora precision audit.
   - `CoralClassification_v2_Pipeline.ipynb`: V2 (24 genera, tiers, embeddings saved). It produced the 14,224-crop run and the Millepora audit inputs.
+- `notebooks/parity_check.ipynb`: the Colab notebook that checks `coralid` against the legacy notebooks and the recorded numbers (Stage A2). It reads Drive and creates only new files. Its summary cell prints what to paste back to the next session.
 - `third_party/CoralSCOP`: git submodule (upstream zhengziqiang/CoralSCOP, pinned).
 - `docs/onboarding_errata.md`: where the PDF guide disagrees with the code and the data.
 
