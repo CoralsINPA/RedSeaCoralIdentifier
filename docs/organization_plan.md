@@ -238,10 +238,7 @@ Decided on 2026-10-11:
    - `build_expert_test_set.py` would only matter for rebuilding the expert set. Its output, `assaf_expert_test_set.csv`, exists.
 4. **The repo is public for now.** Colab installs the package with plain `pip install git+https://...`, with no token. Nothing private goes into the repo.
 5. **Runtime: Colab for now, though not ideal.** So nothing may depend on Colab beyond `colab.py`. Paths come from `DATA_ROOT` and long jobs run through the CLI, which lets the code move to a GPU machine later without changes.
-
-Still open:
-
-6. **Package name:** is `coralid` OK?
+6. **Package name: `coralid`.**
 
 ## 6. Parked for the algorithm discussion
 

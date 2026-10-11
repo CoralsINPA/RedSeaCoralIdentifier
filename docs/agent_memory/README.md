@@ -43,7 +43,7 @@ Last updated 2026-10-11.
 - **Outputs not to trust:** `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 features. All three cut crops from the wrong part of the photo.
 
 **Next**
-- Refactor Phase 0/1. All decisions in `organization_plan.md` §5 are made except the package name.
+- Refactor Phase 0/1. All decisions in `organization_plan.md` §5 are made, and the package is named `coralid`.
 - Then the algorithm plan for the 20-genus classifier.
 
 **Constraints**

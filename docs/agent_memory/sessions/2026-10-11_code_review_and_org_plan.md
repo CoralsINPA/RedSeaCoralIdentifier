@@ -38,6 +38,7 @@ Claude Code cloud session on branch `claude/awesome-archimedes-kvh4c7`. Main out
 - Where `coral_dinoV3_encodings.csv` and `build_expert_test_set.py` came from is not crucial. Neither is needed going forward.
 - The repo is public for now, so no private details go into it.
 - The runtime is Colab for now, though not ideal, so the code must not depend on Colab.
+- The package name is `coralid`.
 
 ## Conclusions
 
@@ -65,7 +66,6 @@ Claude Code cloud session on branch `claude/awesome-archimedes-kvh4c7`. Main out
 
 ## Open questions
 
-- Package name: is `coralid` OK?
 - Do all 1,714 photos share the 4:3 landscape frame? A Phase 1 audit script will check.
 - How are `MISSING_LABEL` rows counted in the expert CSV, given that 62 + 16 = 78 already?
 
