@@ -84,7 +84,7 @@ def encode_mask(mask: np.ndarray) -> Rle:
 # --------------------------------------------------------------------------- keys
 
 
-def _as_int(value: Any) -> int:
+def as_int(value: Any) -> int:
     """Convert an integer-like value (int, numpy int, 14.0, "14") to int, else raise."""
     try:
         return operator.index(value)
@@ -104,7 +104,7 @@ class CoralKey:
     coral_id: int
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "coral_id", _as_int(self.coral_id))
+        object.__setattr__(self, "coral_id", as_int(self.coral_id))
 
     @property
     def uid(self) -> str:
@@ -117,7 +117,7 @@ class CoralKey:
         name, sep, cid = uid.rpartition("#")
         if not sep or not name:
             raise ValueError(f"Not a coral uid: {uid!r}")
-        return cls(name, _as_int(cid))
+        return cls(name, as_int(cid))
 
 
 def parse_bbox(value: Any) -> Bbox:

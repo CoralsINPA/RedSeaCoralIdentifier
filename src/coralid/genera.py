@@ -176,3 +176,10 @@ def build_prompts(
                 "a taxonomy set (taxonomy_v1 or taxonomy_v2)."
             )
     return [config.prompt_set(name).prompts_for(genera, label_set) for name in names]
+
+
+def resolve_genera(label_set: str | list[str] | tuple[str, ...]) -> list[str]:
+    """Genera of a label-set name (from `genera.yaml`) or of an explicit sequence."""
+    if isinstance(label_set, str):
+        return load_genera().genera(label_set)
+    return list(label_set)
