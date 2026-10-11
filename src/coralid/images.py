@@ -19,9 +19,11 @@ class ImageReadError(RuntimeError):
 
 def load_rgb(path: str | os.PathLike[str]) -> np.ndarray:
     """Read an image file as an RGB uint8 array of shape (H, W, 3)."""
+    if not os.path.isfile(path):
+        raise ImageReadError(f"Image missing: {path}")
     bgr = cv2.imread(os.fspath(path))
     if bgr is None:
-        raise ImageReadError(f"Image missing or unreadable: {path}")
+        raise ImageReadError(f"Image unreadable: {path}")
     return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
