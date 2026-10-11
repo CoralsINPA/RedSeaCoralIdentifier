@@ -205,9 +205,9 @@ You are implementing a planned refactor of a research codebase. The design work 
 **7. Real-data check, if you have Drive access**
 - Download `assaf_expert_test_set.csv` (id `1PIBGXIduvOnRn3lvsTT2ZyFtjKiUVRRD`) to your scratchpad. Don't commit it.
 - Evaluate the predictions stored *in that file* against its own expert labels.
-- **Expected, per memory:** 78 rows; 62 identifiable and 16 unidentifiable; 39 correct; 57 in-set.
+- **Expected:** 78 rows; 62 identifiable and 16 unidentifiable; 39 correct; 57 in-set. Your confusion matrix should equal the "authoritative" one in `docs/agent_memory/assaf_review_confusion_matrix.md`, cell for cell.
 - Report what you actually get. The CSV is the truth.
-- Then add a dated note to `docs/agent_memory/assaf_review_confusion_matrix.md` that settles its three flagged contradictions.
+- Add a dated note to that memory file confirming the match, or listing the cells that differ.
 
 **8. `notebooks/parity_check.ipynb`**
 Commit it with outputs stripped. The user runs it in Colab on a GPU.

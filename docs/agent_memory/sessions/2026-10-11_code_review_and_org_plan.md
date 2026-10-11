@@ -29,7 +29,7 @@ Claude Code cloud session on branch `claude/awesome-archimedes-kvh4c7`. Main out
 | `..._masked_best.csv` is the 50-densest-image sample (842 crops), and all six WC comparison runs use the same 842 crops | WC cells 14 and 23 outputs |
 | The CoralSCOP SAM has a 2-class coral/background head and returns per-mask `fc_features`, which the pipeline discards | Diffed the submodule's `segment_anything` against pip `segment-anything==1.0` |
 | The Millepora audit's crops were cut correctly, and its yes/no labels are keyed `(image_name, coral_id)` on run `iou60_sta55_pts32` | MA cells 4 and 6 resize to 2560×1920 and look up the RLE in that image's own JSON |
-| v1 accuracy on Assaf's set is 39/57 = 68.4% on in-set crops (39/62 counting soft corals as errors) | Computed from the confusion-matrix memory; not yet re-derived from the CSV |
+| v1 accuracy on Assaf's set is 39/57 = 68.4% on in-set crops (39/62 counting soft corals as errors); 95% interval 55.5-79.0% | Recomputed from the user's confusion matrix (2026-10-11), whose printed recall and precision rows all match its cells. Not yet re-derived from the CSV. |
 
 ## Decisions made by the user
 
@@ -62,7 +62,30 @@ Claude Code cloud session on branch `claude/awesome-archimedes-kvh4c7`. Main out
 
 **Other conclusions**
 - **The DINOv2 clustering failure stands, but its visual evidence is confounded.** The galleries showed misaligned crops, while the silhouette scores came from correctly aligned DinoVdeau features.
-- **The confusion-matrix memory contradicts itself in three places.** Details are in `../assaf_review_confusion_matrix.md`. Re-derive them from `assaf_expert_test_set.csv`.
+- **The confusion matrix: correction.**
+  - Earlier in this session I flagged three contradictions between the memory's matrix and its prose.
+  - The user then supplied the authoritative matrix. It shows the memory's *table* had transcription errors, and the prose was right about Dipsastraea.
+  - Still wrong in the prose: the Lobophyllia ↔ Acanthastrea direction, and the predicted → true wording of the calibration examples.
+  - See `../assaf_review_confusion_matrix.md`.
+
+## Later in the session: sequencing and expectations
+
+- **Sequencing (user decision):** do the full organization (Stages A1-C of `docs/agent_prompts/implement_organization_plan.md`) before any algorithm work. Stage B's 20-genus run on all images becomes the new baseline.
+- **Expectation: the refactor alone probably won't raise accuracy much.**
+  - The bugs found mostly affect side outputs: cleaned crops, bbox DINOv2 features, cluster previews, V2 Phase 2 joins, and WC's resume option. The zero-shot classification path (resize → filter → masked crop → BioCLIP-FT) was already correct for 4:3 photos.
+  - Two things could still move the numbers:
+    - photos that aren't 4:3, which legacy code stretched (the Stage A frame audit will show these);
+    - images whose segmentation error was silently saved as "0 corals" (this affects coverage, not accuracy).
+  - What the refactor does deliver:
+    - a full-dataset baseline instead of the 50-image sample;
+    - correct keys everywhere;
+    - a repeatable evaluation, so later algorithm changes can actually be measured.
+- **The measurement limit.** With 57 in-set expert crops, the 95% interval on 68.4% runs from 55.5% to 79.0%, so only large changes will show. A larger stratified expert review drawn from the new baseline (the ~300-crop idea in `project_context.md`) is what makes improvements measurable.
+- **Error budget from the matrix (23 errors):**
+  - massive / merulinid complex: 13;
+  - soft corals with no class: 5;
+  - everything else: 5.
+- **Soft corals drag down precision.** They cause most of the precision loss on Acropora (56% → 83% if they were rejected), and on Millepora and Porites. A reject option is likely the cheapest early gain once the baseline exists.
 
 ## Open questions
 
