@@ -228,3 +228,88 @@ def test_geometric_manifest_parquet_round_trip(geometry_dir, tmp_path):
     assert _records(read_manifest(out)) == _records(df)
     meta = json.loads((tmp_path / "geo.meta.json").read_text())
     assert meta["kind"] == "geometric" and meta["n_rows"] == 7
+
+
+# ----------------------------------------------------------------------- resumable + timings
+
+
+def test_geometric_manifest_reports_timings(geometry_dir):
+    timings = {}
+    df = geometric_manifest(geometry_dir, FILTERS, timings=timings)
+    assert set(timings) == {"load_s", "filter_s"} and min(timings.values()) >= 0.0
+    assert _records(df) == _records(geometric_manifest(geometry_dir, FILTERS))
+
+
+def test_resumable_image_manifest_equals_the_plain_one(image_setup, tmp_path):
+    from coralid.batch import ResumableRun
+
+    json_dir, images, crops = image_setup
+    plain = image_manifest(json_dir, images, FILTERS, crops)
+    run = ResumableRun(tmp_path / "work", "manifest", flush_every=2)
+    resumable = image_manifest(json_dir, images, FILTERS, crops, run=run)
+    assert list(resumable.columns) == IMAGE_COLUMNS
+    assert _records(resumable) == _records(plain)
+    assert run.done == {"IMG_1.JPG", "IMG_2.JPG", "IMG_3.JPG"} and not run.unresolved_failures()
+
+
+def test_resumable_image_manifest_skips_done_images_and_retries_failed_ones(
+    image_setup, tmp_path, monkeypatch
+):
+    import coralid.manifest as manifest_module
+    from coralid.batch import ResumableRun
+
+    json_dir, images, crops = image_setup
+    plain = image_manifest(json_dir, images, FILTERS, crops)
+    real_rows = manifest_module.image_rows
+    seen = []
+
+    def flaky(mask_file, *args):
+        seen.append(mask_file.image_name)
+        if mask_file.image_name == "IMG_2.JPG":
+            raise OSError("Drive timed out")
+        return real_rows(mask_file, *args)
+
+    monkeypatch.setattr(manifest_module, "image_rows", flaky)
+    run = ResumableRun(tmp_path / "work", "manifest")
+    partial = image_manifest(json_dir, images, FILTERS, crops, run=run)
+    assert seen == ["IMG_1.JPG", "IMG_2.JPG", "IMG_3.JPG"]
+    assert sorted(partial["image_name"].unique()) == ["IMG_1.JPG", "IMG_3.JPG"]
+    assert [f["image"] for f in run.unresolved_failures()] == ["IMG_2.JPG"]
+
+    seen.clear()
+    monkeypatch.setattr(
+        manifest_module,
+        "image_rows",
+        lambda mf, *a: (seen.append(mf.image_name), real_rows(mf, *a))[1],
+    )
+    resumed_run = ResumableRun(tmp_path / "work", "manifest")
+    full = image_manifest(json_dir, images, FILTERS, crops, run=resumed_run)
+    assert seen == ["IMG_2.JPG"]  # only the failed image was redone
+    assert not resumed_run.unresolved_failures()
+    key = ["image_name", "coral_id"]
+    assert _records(full.sort_values(key, ignore_index=True)) == _records(
+        plain.sort_values(key, ignore_index=True)
+    )
+
+
+def test_resumable_image_manifest_logs_a_corrupt_json_and_goes_on(image_setup, tmp_path):
+    from coralid.batch import ResumableRun
+
+    json_dir, images, crops = image_setup
+    (json_dir / "IMG_0.json").write_text("{ not json")
+    run = ResumableRun(tmp_path / "work", "manifest")
+    df = image_manifest(json_dir, images, FILTERS, crops, run=run)
+    assert len(df) == 6  # the good images are all there
+    (failure,) = run.unresolved_failures()
+    assert failure["image"] == "IMG_0.json"  # the image name is unknown when the JSON is unreadable
+
+
+def test_write_manifest_can_refuse_to_overwrite(geometry_dir, tmp_path):
+    df = geometric_manifest(geometry_dir, FILTERS)
+    out = write_manifest(df, tmp_path / "m.parquet", overwrite=False)
+    before = out.read_bytes()
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        write_manifest(df.head(1), out, overwrite=False)
+    assert out.read_bytes() == before
+    write_manifest(df.head(1), out)  # the default still replaces, as in Stage A1
+    assert len(read_manifest(out)) == 1
