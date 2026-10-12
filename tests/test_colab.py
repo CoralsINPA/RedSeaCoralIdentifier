@@ -93,7 +93,7 @@ def test_extras_are_normalized_and_checked():
 
 
 def test_every_extra_exists_in_pyproject():
-    import tomllib
+    tomllib = pytest.importorskip("tomllib")  # Python 3.11 and newer
 
     root = Path(coralid.__file__).resolve().parents[2]
     declared = tomllib.loads((root / "pyproject.toml").read_text())["project"][

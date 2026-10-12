@@ -89,8 +89,9 @@ def build_parser() -> argparse.ArgumentParser:
         "create the missing mask JSONs with CoralSCOP (never touches an existing JSON)",
         "Segment every photo that has no JSON yet and write json/<stem>.json for it. A photo "
         "whose JSON exists is skipped and the file is never rewritten, so this is safe on the "
-        "active run. Errors go to segmentation/segment.failures.jsonl (no JSON is written, the "
-        "next run retries); a photo with no masks gets an empty JSON with the note 'no masks'. "
+        "active run (to redo a photo, move its JSON aside first). Errors go to "
+        "segmentation/segment.failures.jsonl (no JSON is written, the next run retries); a photo "
+        "with no masks gets an empty JSON with the note 'no masks'. "
         "Needs the vendored CoralSCOP (git submodule update --init), its checkpoint "
         "(sam.checkpoint) and a GPU.",
     )
