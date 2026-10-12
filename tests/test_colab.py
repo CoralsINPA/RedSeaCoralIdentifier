@@ -205,6 +205,29 @@ def test_setup_runs_the_notebooks_setup_cell(tmp_path, data_root, env_cleanup):
     )
 
 
+def test_setup_can_leave_the_repository_alone_when_the_cell_just_updated_it(
+    tmp_path, data_root, env_cleanup
+):
+    run = Recorder()
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    setup(
+        "viz",
+        data_root=str(data_root),
+        repo_dir=str(repo),
+        mount=False,
+        update=False,
+        runner=run,
+        versions=lambda: {},
+        echo=lambda line: None,
+    )
+    commands = [c for c, _ in run.commands]
+    assert commands == [
+        pip_step(str(repo), "viz"),
+        ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+    ]
+
+
 def test_setup_clones_when_there_is_no_clone_yet(tmp_path, data_root, env_cleanup):
     run = Recorder()
     setup(
@@ -351,6 +374,7 @@ def test_the_bootstrap_cell_clones_then_hands_over_to_setup(tmp_path, monkeypatc
     assert args == ("clip,viz",) and kw["repo_dir"] == str(repo)
     assert kw["data_root"] == namespace["DATA_ROOT"] == colab.DEFAULT_DATA_ROOT
     assert kw["branch"] == colab.DEFAULT_BRANCH and kw["repo_url"] == colab.DEFAULT_REPO_URL
+    assert kw["update"] is False  # the cell has just cloned or updated the repository
     assert namespace["env"] == "ENV"
     # an existing clone is not cloned again: it is brought to the branch head
     (repo / ".git").mkdir(parents=True)

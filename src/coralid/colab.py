@@ -103,7 +103,9 @@ sys.path.insert(0, f"{REPO_DIR}/src")  # enough to import coralid.colab (standar
 
 from coralid.colab import setup  # noqa: E402
 
-env = setup(EXTRAS, data_root=DATA_ROOT, branch=BRANCH, repo_url=REPO_URL, repo_dir=REPO_DIR)
+env = setup(
+    EXTRAS, data_root=DATA_ROOT, branch=BRANCH, repo_url=REPO_URL, repo_dir=REPO_DIR, update=False
+)
 """
 
 
@@ -243,6 +245,7 @@ def setup(
     repo_url: str = DEFAULT_REPO_URL,
     repo_dir: str = DEFAULT_REPO_DIR,
     mount: bool = True,
+    update: bool = True,
     runner: Callable[..., Any] = subprocess.run,
     versions: Callable[[], dict[str, str]] = installed_versions,
     echo: Callable[[str], None] = print,  # a notebook cell shows these lines to the user
@@ -251,7 +254,9 @@ def setup(
 
     Raises `FileNotFoundError` (before touching git or pip) if the data root is wrong, and
     `RuntimeError` if pip replaced a package that is probably loaded; restart the runtime then
-    and run the cell again. `mount`, `runner`, `versions` and `echo` are for tests.
+    and run the cell again. `update=False` skips the clone or update of the repository (the
+    notebooks' first cell has just done it, before importing this module). `mount`, `runner`,
+    `versions` and `echo` are for tests.
     """
     extras_text = parse_extras(extras)
     if mount:
@@ -261,7 +266,8 @@ def setup(
 
     before = versions()
     cloned = os.path.isdir(os.path.join(repo_dir, ".git"))
-    for step in [*git_steps(repo_dir, branch, repo_url, cloned), pip_step(repo_dir, extras_text)]:
+    steps = git_steps(repo_dir, branch, repo_url, cloned) if update else []
+    for step in [*steps, pip_step(repo_dir, extras_text)]:
         echo("$ " + " ".join(step))
         runner(step, check=True)
     activate_editable_install(repo_dir)
