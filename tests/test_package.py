@@ -18,6 +18,8 @@ def test_import_stays_light():
         "coralid.encoders, coralid.zero_shot, coralid.batch, coralid.evaluation, "
         "coralid.predictions, coralid.parity, coralid.parity_report, "
         "coralid.baseline, coralid.reports, coralid.labeling, coralid.viz, "
+        "coralid.viz_plots, coralid.funnel, coralid.explore, coralid.probe_labels, "
+        "coralid.parity_segmentation, "
         "coralid.segmentation, coralid.embed, coralid.probe, coralid.clustering, "
         "coralid.colab, coralid.jobs, coralid.cli; "
         "heavy = {'torch', 'torchvision', 'open_clip', 'transformers', 'umap', 'hdbscan', "
