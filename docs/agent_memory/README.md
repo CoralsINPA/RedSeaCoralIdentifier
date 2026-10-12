@@ -6,6 +6,7 @@ This folder holds project memory and conclusions that should outlive a single ag
 
 1. **Current understanding** (below): the short version, updated every session.
 2. `sessions/`, newest first: what each session did, verified and concluded.
+   - `sessions/2026-10-12_stage_C2.md`: Stage C2 (the five thin notebooks, the segmentation check of the real CoralSCOP, the README quickstart, the stale-clone fix of the bootstrap cell); dry-run on a synthetic Drive only; what each dry run covered and could not; the end-to-end run to do before `notebooks/legacy/` is deleted.
    - `sessions/2026-10-12_stage_C1.md`: Stage C1 (segmentation, DINO embeddings, probe, clustering, plots, the Colab setup and the full CLI); library code with synthetic tests, nothing has run on real data or a GPU yet; the Stage C2 plan.
    - `sessions/2026-10-12_baseline_run.md`: the 20-genus baseline on real data (expert set by orientation, genus mix against the survey, the portrait rows behind 7 of the 16 unidentifiable calls, the old Millepora audit against the baseline).
    - `sessions/2026-10-11_stage_B.md`: Stage B (orientation-aware parity, the 20-genus baseline job, portrait-impact report, review sheets and the Millepora re-analysis tools, early notebooks 03 and 04); nothing has run on real data yet.
@@ -25,7 +26,7 @@ The snapshots were imported from the claude.ai project memory on 2026-10-11.
 
 ## Current understanding
 
-Last updated 2026-10-12 (Stage C1).
+Last updated 2026-10-12 (Stage C2).
 
 **Pipeline**
 - **Decided 2026-10-11:** the final label set is the **20 hard genera**. The main line is the WC path: `weak_classification.ipynb`, BioCLIP-FT zero-shot over CoralSCOP masks from run `iou60_sta55_pts32` (44,211 masks, about 14,224 crops after filtering).
@@ -61,25 +62,26 @@ Last updated 2026-10-12 (Stage C1).
 - **Taxonomy drift.** Most Indo-Pacific *Favia* were moved to *Dipsastraea*, yet `ground_truth_genus_counts.csv` lists both, so the survey itself mixes old and new names.
 
 **Code**
-- **State (2026-10-12):** Stages A1, A2, B and C1 of the refactor are written. The `coralid` package (`src/coralid/`) has:
+- **State (2026-10-12):** Stages A1, A2, B, C1 and C2 of the refactor are written. The `coralid` package (`src/coralid/`) has:
   - the data path: `config`, `masks`, `images`, `crops`, `filters` (with a `sharpness_crop` option: `masked` or `bbox`), `manifest`, `orientation` (landscape / portrait, and a way to split any metric by it);
   - **segmentation (C1):** `segmentation` creates only the missing mask JSONs and never rewrites one; errors go to a failure log, never to an empty JSON; CoralSCOP is loaded from the submodule and checked;
   - the zero-shot path: `genera` (with `configs/genera.yaml`), `encoders` (CLIP-family models and, new in C1, DINOv2 and DinoVdeau), `zero_shot`, `batch` (resumable runner), `baseline` (the 20-genus job), `embed` (C1: DINO features of the kept masks, saved like the baseline's);
   - scoring and reports: `evaluation`, `predictions`, `reports` (also the probe report), `portrait_impact`, and the parity checks (`parity`, `parity_manifest`, `parity_expert`, `parity_report`);
   - review and audits: `labeling`, `genus_audit` (the old Millepora audit against the baseline and the blind review sheet), `review_scoring`, `review_export`;
+  - **C2:** `parity_segmentation` (the segmentation check: real CoralSCOP on 5 photos into a scratch run `segcheck_*`, compared with the saved masks by `mask_compare`, PASS / WARN / FAIL), `funnel` (the filter funnel by orientation), `explore` (a features file joined to the baseline's predicted genus), `probe_labels` (probe labels from the expert set's landscape rows), `viz_plots`;
   - **C1:** `clustering` (the legacy PCA / t-SNE / UMAP / K-Means / HDBSCAN settings), `probe` (a linear probe on stored embeddings: grouped cross-validation, held-out report only; it never makes labels), `viz` (galleries, overlays, maps, confusion heat maps), `colab` (the only module that knows about Colab: `setup()` and the `BOOTSTRAP_CELL` for the first cell of a notebook), `jobs` and `cli` (`python -m coralid {segment, build-manifest, embed, zero-shot, evaluate, export-review, train-probe}`).
-  It has 482 CPU tests (six need torch, umap or hdbscan), CI, ruff and pre-commit. The legacy notebooks and V2 are frozen in `notebooks/legacy/`. It reproduces the legacy behavior on landscape photos (real data, see below). Containment runs on the RLE. **Nothing from C1 has run on real data yet.**
+  **The five notebooks** (`01_segment_and_filter`, `02_embeddings_explore`, `03_zero_shot`, `04_expert_review_and_audits`, `05_supervised_probe`) are thin, start with the bootstrap cell and are written. It has 572 CPU tests (six need torch, umap or hdbscan), CI, ruff and pre-commit. The legacy notebooks and V2 are frozen in `notebooks/legacy/`. It reproduces the legacy behavior on landscape photos (real data, see below). Containment runs on the RLE. **Nothing from C1 or C2 has run on real data yet** (the notebooks were dry-run on a synthetic Drive with fake generators and encoders).
 - **What has run on real data:**
   - the parity notebook (`sessions/2026-10-11_parity_run_1.md`);
   - `03_zero_shot.ipynb` in full and `04_expert_review_and_audits.ipynb` up to the old Millepora audit against the baseline (`sessions/2026-10-12_baseline_run.md`). The 16 / 2 split of `unidentifiable` / `MISSING_LABEL` is confirmed.
   
   The blind review export and its scoring (cells 9 and 11 of 04) haven't run on real data.
-- **Found, not fixed (C1, see `sessions/2026-10-12_stage_C1.md`):** CoralSCOP's loader has no `map_location`; importing the submodule dirties it with `__pycache__`; it is unknown whether the generator can raise for a photo with no masks.
+- **Found, not fixed (C1, see `sessions/2026-10-12_stage_C1.md`):** CoralSCOP's loader has no `map_location`; it is unknown whether the generator can raise for a photo with no masks. (The submodule's `__pycache__` no longer dirties `git status`: `ignore = untracked` in `.gitmodules`.) **C2:** the segmentation check's PASS / WARN / FAIL limits are guesses, and `data_50` is assumed to hold the same files as `data_all`.
 - **Found, not fixed:** SAM's bbox is one pixel short (`w = right - left`), a black photo pixel inside a mask counts as not visible, running WC cell 14 overwrites a CSV and a PNG on Drive, `configs/` is not part of a non-editable install, and the V2 notebook carries Colab account metadata (see the two Stage sessions).
 - **Outputs not to trust:** `cleaned_images_crops/`, `cleaned_jsons_filtered/` and the bbox DINOv2 features. All three cut crops from the wrong part of the photo.
 
 **Next**
-- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1, A2, B and C1 are written and the baseline has run (2026-10-12). Stage C2 is next: the five notebooks (each starting with `colab.BOOTSTRAP_CELL`), the README quickstart, and, after one end-to-end run, deleting `notebooks/legacy/`.** The blind review export of 04 (cell 9) is on hold, to be combined with the larger expert set of algorithm idea 1.1 so Assaf reviews once.
+- The full organization, Stages A1 → C of `docs/agent_prompts/implement_organization_plan.md`. All decisions are made, and the package is named `coralid`. **A1, A2, B, C1 and C2 are written and the baseline has run (2026-10-12). Next: one end-to-end run in Colab (01 all cells, 03 all cells, 02 with its defaults; about 35-50 min, exact steps and what to paste back in `sessions/2026-10-12_stage_C2.md`), then, once the user confirms it, deleting `notebooks/legacy/`.** The blind review export of 04 is on hold (`RUN_EXPORT = False`), to be combined with the larger expert set of algorithm idea 1.1 so Assaf reviews once.
 - The 20-genus run on all images is the **new baseline** (`<run>/predictions/` and `<run>/features/`). It builds on the manifest that Check C saved to `<run>/manifest/`. Report its expert results for landscape and portrait rows apart: Assaf labeled crops cut by the legacy code, which were mis-cut on portrait photos.
 - **Millepora, redone:** the blind sheet, the scoring (precision, miss rate and recall with intervals, the analyst against Assaf, what the false positives really are) and the portrait re-review are built; the old audit's portrait rows are never reused.
 - **Parity established (2026-10-11).** On landscape photos, `coralid` reproduces the legacy zero-shot results exactly (773/773 crops, 100% top-1, max probability difference 9e-6).
