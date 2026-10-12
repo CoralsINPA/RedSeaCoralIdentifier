@@ -254,3 +254,14 @@ def test_cluster_sizes_and_sampling_per_group():
     again = sample_per_group(table, "cluster", n=2)
     pd.testing.assert_frame_equal(picked, again)  # the seed fixes the draw
     assert len(sample_per_group(table.iloc[:0], "cluster")) == 0
+
+
+def test_pca_keeps_all_it_has_when_the_features_are_smaller_than_asked():
+    pytest.importorskip("sklearn")
+    from coralid.clustering import drop_first_component, pca_reduce
+
+    X = np.random.RandomState(0).randn(40, 24)  # 24 dimensions, 50 components asked for
+    result = pca_reduce(X, 50)
+    assert result.Z.shape == (40, 24) and result.total_variance == pytest.approx(1.0)
+    assert pca_reduce(X[:10], 50).Z.shape == (10, 10)  # fewer crops than components
+    assert drop_first_component(X, 50).shape == X.shape

@@ -44,11 +44,19 @@ class PcaResult:
         return float(self.explained_variance_ratio.sum())
 
 
+def _cap_components(X: np.ndarray, n_components: int) -> int:
+    """`n_components`, lowered to what the data allows (a PCA cannot exceed rows or columns)."""
+    return max(1, min(n_components, X.shape[0], X.shape[1]))
+
+
 def pca_reduce(X: np.ndarray, n_components: int = 50, seed: int = SEED) -> PcaResult:
-    """Denoise by projecting on the first `n_components` principal components (CM cells 13, 14)."""
+    """Denoise by projecting on the first `n_components` principal components (CM cells 13, 14).
+
+    Features with fewer than `n_components` dimensions (or fewer crops) keep all they have.
+    """
     from sklearn.decomposition import PCA
 
-    pca = PCA(n_components=n_components, random_state=seed)
+    pca = PCA(n_components=_cap_components(X, n_components), random_state=seed)
     return PcaResult(pca.fit_transform(X), pca.explained_variance_ratio_)
 
 
@@ -71,6 +79,8 @@ def umap_embed(
     seed: int = SEED,
 ) -> np.ndarray:
     """A UMAP map of `X` (n, n_components); the defaults are CM cell 12's."""
+    import warnings
+
     import umap
 
     reducer = umap.UMAP(
@@ -80,7 +90,10 @@ def umap_embed(
         metric=metric,
         random_state=seed,
     )
-    return reducer.fit_transform(X)
+    with warnings.catch_warnings():
+        # a fixed seed makes UMAP single-threaded and it says so on every call
+        warnings.filterwarnings("ignore", message="n_jobs value 1 overridden", category=UserWarning)
+        return reducer.fit_transform(X)
 
 
 def sweep_projections(
@@ -168,7 +181,7 @@ def drop_first_component(X: np.ndarray, n_components: int = 50, seed: int = SEED
     """Remove principal component 0 (the 'lighting' component of CM cell 20); same space as X."""
     from sklearn.decomposition import PCA
 
-    pca = PCA(n_components=n_components, random_state=seed)
+    pca = PCA(n_components=_cap_components(X, n_components), random_state=seed)
     scores = pca.fit_transform(X)
     scores[:, 0] = 0
     return pca.inverse_transform(scores)
