@@ -7,7 +7,9 @@ samplers and the projections) and arrive in a table keyed by `image_name` and `c
 - `crop_gallery_pdf`: the same, with the rows grouped by a column, one section per group (the
   K-Means cluster gallery of CM cell 14, a genus gallery);
 - `mask_overlay`: a photo with its masks drawn, optionally colored by a column (CM cell 8);
-- `embedding_scatter` and `confusion_heatmap`: a 2-D map colored by a column, a confusion matrix.
+- `embedding_scatter`, `category_palette`, `confusion_heatmap` and `funnel_chart`: the plots that
+  need no photo (a 2-D map colored by a number or a category, a confusion matrix, the filter
+  funnel). They live in `coralid.viz_plots` and are importable from here too.
 
 Crops are always cut from the photo loaded in the mask frame. matplotlib is imported inside the
 functions, so `import coralid` stays light.
@@ -29,6 +31,19 @@ from coralid.config import CropConfig
 from coralid.crops import bbox_crop, masked_crop, masked_square_crop
 from coralid.images import ImageReadError, load_in_mask_frame
 from coralid.masks import AnnotationStore, decode_rle
+from coralid.viz_plots import category_palette, confusion_heatmap, embedding_scatter, funnel_chart
+
+__all__ = [
+    "CROP_VIEWS",
+    "category_palette",
+    "confusion_heatmap",
+    "crop_gallery_pdf",
+    "crop_grid_pdf",
+    "cut_crops",
+    "embedding_scatter",
+    "funnel_chart",
+    "mask_overlay",
+]
 
 CROP_VIEWS = ("masked", "square", "bbox")
 
@@ -244,69 +259,3 @@ def mask_overlay(
     if color_col is not None:
         ax.legend(handles=[Patch(color=c, label=v) for v, c in palette.items()], loc="upper right")
     return fig
-
-
-def embedding_scatter(
-    table: pd.DataFrame,
-    x: str = "x",
-    y: str = "y",
-    color: str | None = None,
-    ax: Any = None,
-    title: str = "",
-    s: float = 10,
-    alpha: float = 0.6,
-    cmap: str = "nipy_spectral",
-) -> Any:
-    """A 2-D map of the rows of `table` (columns `x` and `y`), colored by `color`; returns a Figure.
-
-    Pass `ax` to draw into a panel of your own figure (the figure of that axes is returned).
-    """
-    from matplotlib.figure import Figure
-
-    if ax is None:
-        ax = Figure(figsize=(8, 7)).subplots()
-    ax.scatter(
-        table[x],
-        table[y],
-        c=table[color] if color else "royalblue",
-        cmap=cmap if color else None,
-        s=s,
-        alpha=alpha,
-    )
-    ax.set_xlabel(x)
-    ax.set_ylabel(y)
-    if title:
-        ax.set_title(title)
-    return ax.figure
-
-
-def confusion_heatmap(
-    confusion: pd.DataFrame, ax: Any = None, normalize: bool = False, title: str = ""
-) -> Any:
-    """A confusion matrix (true in rows, predicted in columns) as a heat map; returns a Figure.
-
-    `normalize` shows each row as shares of its true genus. Counts are printed in the cells of a
-    matrix with at most 25 classes.
-    """
-    from matplotlib.figure import Figure
-
-    if ax is None:
-        ax = Figure(figsize=(9, 8)).subplots()
-    values = confusion.to_numpy(dtype=float)
-    if normalize:
-        totals = values.sum(axis=1, keepdims=True)
-        values = np.divide(values, totals, out=np.zeros_like(values), where=totals > 0)
-    image = ax.imshow(values, cmap="Blues")
-    ax.figure.colorbar(image, ax=ax, shrink=0.8)
-    ax.set_xticks(range(len(confusion.columns)), list(confusion.columns), rotation=90)
-    ax.set_yticks(range(len(confusion.index)), list(confusion.index))
-    ax.set_xlabel(confusion.columns.name or "predicted")
-    ax.set_ylabel(confusion.index.name or "true")
-    if len(confusion) <= 25:
-        for (i, j), v in np.ndenumerate(values):
-            if v:
-                text = f"{v:.2f}" if normalize else f"{int(v)}"
-                ax.text(j, i, text, ha="center", va="center", fontsize=7)
-    if title:
-        ax.set_title(title)
-    return ax.figure

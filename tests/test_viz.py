@@ -12,10 +12,12 @@ from coralid.config import CropConfig  # noqa: E402
 from coralid.crops import bbox_crop  # noqa: E402
 from coralid.masks import AnnotationStore  # noqa: E402
 from coralid.viz import (  # noqa: E402
+    category_palette,
     confusion_heatmap,
     crop_gallery_pdf,
     cut_crops,
     embedding_scatter,
+    funnel_chart,
     mask_overlay,
 )
 from tests.helpers import make_annotation, rect_mask, write_json_dir  # noqa: E402
@@ -162,3 +164,75 @@ def test_confusion_heatmap_shows_counts_or_row_shares():
     assert [t.get_text() for t in ax.texts] == ["3", "1"]
     shares = confusion_heatmap(confusion, normalize=True).axes[0].get_images()[0].get_array()
     np.testing.assert_allclose(shares, [[0.75, 0.25], [0, 0]])  # an empty row stays 0
+
+
+def test_a_category_column_is_drawn_per_category_with_a_legend_that_counts():
+    genus = ["Porites", "Acropora", "Porites", "Pavona", "Porites"]
+    table = embedding_table(
+        [f"I.JPG#{i}" for i in range(5)], x=[0, 1, 2, 3, 4.0], y=[4, 3, 2, 1, 0.0], genus=genus
+    )
+    fig = embedding_scatter(table, color="genus")
+    ax = fig.axes[0]
+    assert [c.get_label() for c in ax.collections] == [
+        "Acropora (1)",
+        "Pavona (1)",
+        "Porites (3)",
+    ]
+    porites = ax.collections[2]
+    np.testing.assert_array_equal(porites.get_offsets(), [[0, 4], [2, 2], [4, 0]])
+    assert ax.get_legend().get_title().get_text() == "genus"
+
+
+def test_a_shared_palette_keeps_a_genus_the_same_color_in_every_panel():
+    palette = category_palette(["Porites", "Acropora", "Pavona"])
+    assert list(palette) == ["Acropora", "Pavona", "Porites"]
+    subset = embedding_table(["I.JPG#0", "I.JPG#1"], x=[0, 1.0], y=[0, 1.0], g=["Porites", "Zzz"])
+    ax = embedding_scatter(subset, color="g", palette=palette).axes[0]
+    drawn = {c.get_label()[:-4]: c.get_facecolor()[0] for c in ax.collections}
+    np.testing.assert_allclose(drawn["Porites"][:3], palette["Porites"][:3])
+    np.testing.assert_allclose(drawn["Zzz"][:3], [0.827, 0.827, 0.827], atol=0.01)  # not in it
+
+
+def test_cluster_numbers_sort_as_numbers_and_noise_last():
+    palette = category_palette(["10", "2", "noise", "-1", "1"])
+    assert list(palette) == ["-1", "1", "2", "10", "noise"]
+    many = category_palette([str(i) for i in range(30)])
+    assert len(set(many.values())) == 30  # beyond 20 categories the colors are still distinct
+
+
+def test_the_funnel_chart_has_the_stages_and_the_orientation_shares():
+    from coralid.funnel import filter_funnel
+
+    manifest = pd.DataFrame(
+        {
+            "image_name": ["L.JPG"] * 6 + ["P.JPG"] * 4,
+            "frame_w": [2560] * 6 + [1920] * 4,
+            "frame_h": [1920] * 6 + [2560] * 4,
+            "reject_reason": [
+                "area",
+                "area",
+                "aspect",
+                None,
+                None,
+                None,
+                "area",
+                "blurry",
+                None,
+                None,
+            ],
+        }
+    )
+    manifest["keep"] = manifest["reject_reason"].isna()
+    fig = funnel_chart(filter_funnel(manifest), title="funnel")
+    left, right = fig.axes
+    assert [t.get_text() for t in left.get_yticklabels()] == [
+        "kept",
+        "blurry",
+        "aspect",
+        "area",
+        "all masks",
+    ]
+    assert [p.get_width() for p in left.patches] == [5, 5, 6, 7, 10]  # masks left, bottom up
+    assert [t.get_text() for t in right.get_yticklabels()] == ["area", "aspect", "blurry"]
+    widths = [round(p.get_width(), 1) for p in right.patches]
+    assert widths == [33.3, 16.7, 0.0, 25.0, 0.0, 25.0]  # landscape x3, then portrait x3
