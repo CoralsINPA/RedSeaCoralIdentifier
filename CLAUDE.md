@@ -3,11 +3,14 @@
 Genus-level coral identification for Red Sea reef photos: segment corals (CoralSCOP/SAM), then classify each crop with zero-shot CLIP-family models. See `README.md` for the overview and `docs/Coral_Pipeline_Onboarding_Guide.pdf` for the full Drive/notebook map.
 
 ## Layout
-- `src/coralid/`: the installable package that is replacing the notebooks (plan: `docs/organization_plan.md`, staged prompts: `docs/agent_prompts/implement_organization_plan.md`). Built so far (Stages A1, A2 and B):
+- `src/coralid/`: the installable package that is replacing the notebooks (plan: `docs/organization_plan.md`, staged prompts: `docs/agent_prompts/implement_organization_plan.md`). Built so far (Stages A1, A2, B and C1):
   - data path: `config`, `masks`, `images`, `crops`, `filters` (area, aspect, containment, sharpness; `sharpness_crop` is `masked` or `bbox`), `manifest`, `orientation` (landscape / portrait from the manifest's frame, and `by_orientation` to split any metric);
-  - zero-shot path: `genera`, `encoders`, `zero_shot`, `batch` (resumable runner), `baseline` (the 20-genus job: `run_baseline`), `cli` (`python -m coralid zero-shot --config ...`);
-  - scoring and reports: `evaluation` and `predictions` (expert set, legacy CSV adapter, prediction comparison), `reports` (expert evaluation and genus mix by orientation), `portrait_impact`, and `parity`, `parity_manifest`, `parity_expert`, `parity_report` (the pass/fail logic of the parity notebook);
-  - review and audits: `labeling` (review sheets, ingest by key, per-genus audit), `genus_audit` (old Millepora audit against the baseline, the blind review sheet), `review_scoring`, `review_export`, `viz` (crop-grid PDF so far).
+  - segmentation: `segmentation` (CoralSCOP from the `third_party` submodule; `run_segmentation` creates only the missing mask JSONs and never rewrites one, errors go to a failure log, never to an empty JSON);
+  - zero-shot path: `genera`, `encoders` (CLIP-family models, and the DINO models `dinov2-s14` and `dinovdeau-l`), `zero_shot`, `batch` (resumable runner), `baseline` (the 20-genus job: `run_baseline`), `embed` (the DINO embeddings of the kept masks: `run_embeddings`);
+  - scoring and reports: `evaluation` and `predictions` (expert set, legacy CSV adapter, prediction comparison), `reports` (expert evaluation and genus mix by orientation, probe report), `portrait_impact`, and `parity`, `parity_manifest`, `parity_expert`, `parity_report` (the pass/fail logic of the parity notebook);
+  - review and audits: `labeling` (review sheets, ingest by key, per-genus audit), `genus_audit` (old Millepora audit against the baseline, the blind review sheet), `review_scoring`, `review_export`;
+  - exploration and supervised learning: `clustering` (PCA, t-SNE, UMAP, K-Means, HDBSCAN with the legacy settings), `probe` (logistic regression on stored embeddings, grouped cross-validation, held-out report; the labels are an input, it never makes them), `viz` (crop-grid and cluster-gallery PDFs, mask overlays, 2-D maps, confusion heat maps; each takes a table plus an `AnnotationStore` and computes nothing);
+  - the command line and Colab: `jobs` (the config wiring behind the commands), `cli` (`python -m coralid ...`), `colab` (the only module that knows about Colab: `setup()` and the `BOOTSTRAP_CELL` that every notebook starts with).
   - Tests are in `tests/` (synthetic data only). Configs: `configs/iou60_sta55_pts32.yaml` (the run) and `configs/genera.yaml` (the `hard20` label set and the prompt sets, copied verbatim from the legacy notebooks).
 - `notebooks/legacy/`: the frozen reference notebooks, outputs included. The three Colab notebooks and V2 are here:
   - `CoralMasking.ipynb`: segmentation + DINOv2/DinoVdeau embeddings + t-SNE/UMAP/K-Means.
@@ -20,10 +23,18 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
 - `docs/onboarding_errata.md`: where the PDF guide disagrees with the code and the data.
 
 ## Commands
-- Install: `pip install -e ".[dev]"` (extras: `clip`, `dino`, `segment`, `cluster`, `viz`).
-- Baseline job: `python -m coralid zero-shot --config configs/iou60_sta55_pts32.yaml` (needs a GPU, the manifest from the parity notebook's Check C, and `CORALID_DATA_ROOT`). Resumable, never overwrites.
+- Install: `pip install -e ".[dev]"` (extras: `clip`, `dino`, `segment`, `cluster`, `probe`, `viz`).
+- Command line, every command with `--config configs/iou60_sta55_pts32.yaml` and `CORALID_DATA_ROOT` (or `--data-root`). None overwrites a file; the long jobs resume. Exit code 2 means it could not finish (the message says why):
+  - `python -m coralid segment`: create the mask JSONs of photos that have none (CoralSCOP checkpoint and a GPU). An existing JSON is never touched, so it is safe on the active run; `--dry-run` only counts.
+  - `python -m coralid build-manifest`: `manifest/manifest.parquet` (reads every photo; resumable). `--geometric` needs no photos.
+  - `python -m coralid embed [--model dinov2-s14|dinovdeau-l]`: `features/<model>__masked_square.npz` for the kept masks (GPU).
+  - `python -m coralid zero-shot`: the 20-genus baseline job (GPU, needs the manifest). About 25 minutes on a T4.
+  - `python -m coralid evaluate`: the baseline against the expert set and the survey counts, into a new folder under `reports/`.
+  - `python -m coralid export-review --genus Millepora`: a blind review sheet; hand out `reviews/exports/`, keep `reviews/keys/` private.
+  - `python -m coralid train-probe --labels <csv>`: held-out report of a linear probe, trained only on labels you give it.
 - Check: `ruff check .`, `ruff format --check .`, `pytest -q`. All three must pass before a commit. `notebooks/legacy/` and `third_party/` are excluded from ruff, and from nbstripout (their outputs stay).
-- Data root: set `CORALID_DATA_ROOT` (or `paths.data_root` in the config). Only `colab.py` (not written yet) may know about Colab.
+- Data root: set `CORALID_DATA_ROOT` (or `paths.data_root` in the config). Only `colab.py` may know about Colab: `coralid.colab.setup()` mounts Drive, clones and installs the package; notebooks 01-05 of Stage C2 start with its `BOOTSTRAP_CELL`, while 03, 04 and the parity notebook still carry their own setup cell.
+- Segmentation needs the vendored CoralSCOP, never pip's `segment-anything` (no coral head): `git submodule update --init`, and the `segment` extra.
 
 ## Key facts
 - Active run name: `iou60_sta55_pts32` (SAM points_per_side 32, pred_iou 0.60, stability 0.55, min_mask_region_area 100).
@@ -33,7 +44,7 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
 - Default model: ReefNet fine-tuned BioCLIP (ViT-B/16); alternatives are BioCLIP 2 and SigLIP 2.
 - Millepora check: a non-expert analyst (not Assaf) judged 66 of 112 decided crops correct (58.9%; 51-64% counting the 17 unsure). The crops were V2's sharp, confidence >= 0.85 Millepora predictions, and the reviewer saw the model's answer. Treat the figure as provisional, and not as the 20-genus precision.
 - Expert test set: `assaf_expert_test_set.csv`, joined on `(image_name, coral_id)`. The CSV has 77 rows (the 78-crop matrix in the memory notes is a slightly different version of the same review). Orientation matters: the expert labeled crops cut by the legacy code, which were mis-cut on portrait photos, so report expert results for landscape and portrait rows separately.
-- Outputs the notebooks create under the run folder on Drive: `manifest/manifest.parquet` (16,080 kept crops, from the parity notebook), `predictions/<model>__<prompts>__<labels>__all.parquet` and `features/<model>__<crop mode>.npz` (the baseline, each with a `.meta.json`; progress in `predictions/parts/`), `reports/` (one new folder per report), `reviews/{exports,keys,completed}/` (blind review sheets; `keys/` holds the hidden answer key, do not share it).
+- Outputs the notebooks create under the run folder on Drive: `manifest/manifest.parquet` (16,080 kept crops, from the parity notebook), `predictions/<model>__<prompts>__<labels>__all.parquet` and `features/<model>__<crop mode>.npz` (the baseline, each with a `.meta.json`; progress in `predictions/parts/`), `reports/` (one new folder per report, probe reports included), `reviews/{exports,keys,completed}/` (blind review sheets; `keys/` holds the hidden answer key, do not share it). The new jobs add `features/<dino model>__masked_square.npz` (`embed`, with progress in `features/parts/`), `segmentation/` (the `segment` failure log, run records and optional extras; `json/` holds mask JSONs only) and `manifest/manifest_geometric.parquet` (`build-manifest --geometric`).
 - Label set: the 20 hard-coral genera (decided 2026-10-11). The 24-genus v2 pipeline is not carried forward.
 
 ## Agent memory

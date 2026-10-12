@@ -23,7 +23,7 @@ The extended V2 pipeline (24 genera, tiered review, Millepora audit inputs) is i
 ## Repository layout
 
 ```
-src/coralid/          Installable package: masks, crops, filters, manifest, zero-shot scoring, the 20-genus baseline job and its reports, expert-set evaluation, review sheets and audits, and a small CLI (more to come)
+src/coralid/          Installable package: segmentation (CoralSCOP), masks, crops, filters, manifest, zero-shot scoring and the 20-genus baseline job, DINO embeddings, clustering, a linear probe, expert-set evaluation, review sheets and audits, plots, the Colab setup, and the `python -m coralid` command line
 configs/              Run configuration (iou60_sta55_pts32.yaml) and the genus label set and prompts (genera.yaml)
 tests/                CPU-only tests on synthetic data (no data or GPU needed)
 notebooks/03_zero_shot.ipynb                  Colab, early version: the baseline job and its reports (expert set, genus mix, by photo orientation)
@@ -45,7 +45,7 @@ git submodule update --init
 To work on the package (Python 3.10 or newer):
 
 ```bash
-pip install -e ".[dev]"      # add extras as needed: clip, dino, segment, cluster, viz
+pip install -e ".[dev]"      # add extras as needed: clip, dino, segment, cluster, probe, viz
 ruff check . && ruff format --check . && pytest -q
 ```
 
@@ -57,7 +57,7 @@ The 20-genus baseline (fine-tuned BioCLIP over every kept crop of the run's mani
 python -m coralid zero-shot --config configs/iou60_sta55_pts32.yaml
 ```
 
-It is resumable, never overwrites a file, and takes about 25 minutes for the 1,714 photos on a T4.
+It is resumable, never overwrites a file, and takes about 25 minutes for the 1,714 photos on a T4. The other commands (`segment`, `build-manifest`, `embed`, `evaluate`, `export-review`, `train-probe`) work the same way: see `python -m coralid --help`.
 
 ## Data and model weights (not in this repo)
 
