@@ -387,6 +387,14 @@ def test_load_coralscop_refuses_another_segment_anything(tmp_path, clean_modules
         load_coralscop(root)
 
 
+def test_load_coralscop_explains_missing_torch(tmp_path, clean_modules):
+    root = tmp_path / "CoralSCOP"
+    (root / "segment_anything").mkdir(parents=True)
+    (root / "segment_anything" / "__init__.py").write_text("import torch_that_is_not_installed\n")
+    with pytest.raises(SegmentationError, match=r"needs torch.*'\.\[segment\]'"):
+        load_coralscop(root)
+
+
 def test_load_coralscop_explains_a_missing_submodule(tmp_path, clean_modules):
     with pytest.raises(SegmentationError, match="git submodule update --init"):
         load_coralscop(tmp_path / "empty")

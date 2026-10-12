@@ -90,7 +90,13 @@ def load_coralscop(root: str | os.PathLike[str] | None = None) -> Any:
         )
     if sys.path[:1] != [str(folder)]:
         sys.path.insert(0, str(folder))  # before any pip-installed segment_anything
-    module = importlib.import_module("segment_anything")
+    try:
+        module = importlib.import_module("segment_anything")
+    except ImportError as err:
+        raise SegmentationError(
+            f"CoralSCOP's segment_anything could not be imported ({err}). It needs torch and "
+            "torchvision: install the 'segment' extra (pip install -e '.[segment]')."
+        ) from err
     origin = Path(module.__file__).resolve()
     if folder not in origin.parents:
         raise SegmentationError(
@@ -113,10 +119,10 @@ def build_generator(
     The checkpoint is loaded with `strict=True` by CoralSCOP's own builder; a mismatch raises.
     A missing file is an error too (the builder would silently return an untrained model).
     """
-    segment_anything = load_coralscop(coralscop_root)
     checkpoint = Path(checkpoint)
     if not checkpoint.is_file():
         raise FileNotFoundError(f"CoralSCOP checkpoint not found: {checkpoint}")
+    segment_anything = load_coralscop(coralscop_root)
     if device is None:
         import torch
 
