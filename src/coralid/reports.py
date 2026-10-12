@@ -201,6 +201,25 @@ def _genus_mix(
 # --------------------------------------------------------------------------- saving
 
 
+def new_report_folder(
+    reports_dir: str | os.PathLike[str], kind: str, name: str = "", date: str | None = None
+) -> Path:
+    """Create and return `<reports_dir>/<kind>_<name>_<date>/` (the name may be empty).
+
+    An existing folder is never reused: the next free `_2`, `_3`... suffix is taken, so every
+    report lands in a folder of its own and no file is ever overwritten.
+    """
+    date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    stem = "_".join(part for part in (kind, name, date) if part)
+    folder = Path(reports_dir) / stem
+    n = 1
+    while folder.exists():
+        n += 1
+        folder = Path(reports_dir) / f"{stem}_{n}"
+    folder.mkdir(parents=True)
+    return folder
+
+
 def write_baseline_report(
     report: BaselineReport,
     reports_dir: str | os.PathLike[str],
@@ -214,13 +233,7 @@ def write_baseline_report(
     `distribution_<group>.csv`. An existing folder gets a `_2`, `_3`... suffix; no file is
     ever overwritten. Returns the folder.
     """
-    date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    folder = Path(reports_dir) / f"baseline_{name}_{date}"
-    n = 1
-    while folder.exists():
-        n += 1
-        folder = Path(reports_dir) / f"baseline_{name}_{date}_{n}"
-    folder.mkdir(parents=True)
+    folder = new_report_folder(reports_dir, "baseline", name, date)
     report.expert_paired.to_csv(folder / "expert_paired.csv", index=False)
     report.orientation_summary.to_csv(folder / "orientation_summary.csv", index=False)
     report.genus_by_orientation.to_csv(folder / "genus_by_orientation.csv")
@@ -244,13 +257,7 @@ def write_probe_report(
     `summary.json`, `per_genus.csv`, `confusion.csv`, `folds.csv` and `held_out.csv`. An existing
     folder gets a `_2`, `_3`... suffix; no file is ever overwritten.
     """
-    date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    folder = Path(reports_dir) / f"probe_{name}_{date}"
-    n = 1
-    while folder.exists():
-        n += 1
-        folder = Path(reports_dir) / f"probe_{name}_{date}_{n}"
-    folder.mkdir(parents=True)
+    folder = new_report_folder(reports_dir, "probe", name, date)
     report.evaluation.per_genus.to_csv(folder / "per_genus.csv")
     report.evaluation.confusion.to_csv(folder / "confusion.csv")
     pd.DataFrame(report.folds).to_csv(folder / "folds.csv", index=False)

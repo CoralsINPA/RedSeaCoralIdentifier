@@ -12,6 +12,7 @@ paths:
   reports_dir: reports
   segmentation_dir: segmentation
   ground_truth_csv: ground_truth_genus_counts.csv
+  run_prefix: ""  # put in front of the run name; only scratch runs use it (the segmentation check)
 sam:
   model_type: vit_b
   checkpoint: CoralSCOP/checkpoints/vit_b_coralscop.pth

@@ -207,3 +207,15 @@ def test_a_group_without_expert_rows_still_reports(tmp_path):
     assert report.expert_new["portrait"].accuracy_in_set["total"] == 0
     assert report.expert_paired.set_index("group").loc["portrait", "in_set_paired"] == 0
     assert IN_SET in report.expert_new["all"].status_counts
+
+
+def test_new_report_folders_are_never_reused(tmp_path):
+    from coralid.reports import new_report_folder
+
+    reports = tmp_path / "reports"  # created on demand
+    first = new_report_folder(reports, "segcheck", date="2026-10-12")
+    second = new_report_folder(reports, "segcheck", date="2026-10-12")
+    named = new_report_folder(reports, "probe", "feats", "2026-10-12")
+    assert first.name == "segcheck_2026-10-12" and second.name == "segcheck_2026-10-12_2"
+    assert named.name == "probe_feats_2026-10-12"
+    assert all(p.is_dir() for p in (first, second, named))

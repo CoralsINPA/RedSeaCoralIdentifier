@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ DATA_ROOT_ENV = "CORALID_DATA_ROOT"
 BACKGROUNDS = ("black", "gray", "white")
 CROP_MODES = ("masked", "bbox")
 SHARPNESS_CROPS = ("masked", "bbox")
+_RUN_PREFIX = re.compile(r"[A-Za-z0-9_-]*")
 
 
 class ConfigError(ValueError):
@@ -45,6 +47,16 @@ class Paths:
     reports_dir: str = "reports"
     segmentation_dir: str = "segmentation"  # the segmentation job's failure log and sidecars
     ground_truth_csv: str = "ground_truth_genus_counts.csv"
+    # Put in front of the run name derived from the SAM settings, so that a scratch run (the
+    # segmentation check) gets a folder of its own: `segcheck_` gives `segcheck_iou60_sta55_pts32`.
+    run_prefix: str = ""
+
+    def __post_init__(self) -> None:
+        if not _RUN_PREFIX.fullmatch(self.run_prefix):
+            raise ConfigError(
+                f"paths.run_prefix may use letters, digits, '_' and '-' only, got "
+                f"{self.run_prefix!r}"
+            )
 
     def resolve_root(self) -> Path:
         """Return the data root from the config, else from `$CORALID_DATA_ROOT`."""
@@ -200,8 +212,8 @@ class Config:
 
     @property
     def run_name(self) -> str:
-        """Run folder name derived from the SAM settings."""
-        return run_name(self.sam)
+        """Run folder name: the SAM settings' name, after `paths.run_prefix` if there is one."""
+        return self.paths.run_prefix + run_name(self.sam)
 
     @property
     def data_root(self) -> Path:

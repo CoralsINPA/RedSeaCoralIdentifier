@@ -188,3 +188,28 @@ def test_a_config_written_before_stage_c_still_loads(tmp_path):
     cfg = load_config(old)
     assert cfg.zero_shot.model == "bioclip2"
     assert cfg.embed.model == "dinov2-s14" and cfg.sam.save_features is False
+
+
+def test_a_run_prefix_names_a_scratch_run_and_changes_nothing_else(monkeypatch, tmp_path):
+    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
+    plain = Config()
+    assert plain.paths.run_prefix == "" and plain.run_name == "iou60_sta55_pts32"
+    scratch = Config.from_dict({"paths": {"run_prefix": "segcheck_"}})
+    assert scratch.run_name == "segcheck_iou60_sta55_pts32"
+    assert scratch.run_dir == tmp_path / "results_all" / "segcheck_iou60_sta55_pts32"
+    assert scratch.json_dir != plain.json_dir
+    assert scratch.images_dir == plain.images_dir  # only the run folder moves
+    # the prefix is not part of the derived name function
+    assert run_name(scratch.sam) == "iou60_sta55_pts32"
+
+
+@pytest.mark.parametrize("prefix", ["../x", "a/b", "x y", "x.", "é"])
+def test_a_run_prefix_cannot_leave_the_results_folder(prefix):
+    with pytest.raises(ConfigError, match="run_prefix"):
+        Config.from_dict({"paths": {"run_prefix": prefix}})
+
+
+def test_a_config_without_a_run_prefix_still_loads(tmp_path):
+    old = tmp_path / "old.yaml"
+    old.write_text(yaml.safe_dump({"paths": {"images_dir": "data_50"}}))
+    assert load_config(old).paths.run_prefix == ""
