@@ -14,7 +14,8 @@ the expert set and the survey counts, and gives:
 photos those were cut from the wrong region, so his label may describe a different-looking crop
 than the one `coralid` classifies. The fair comparison with the legacy result is the landscape
 one; the portrait one is informational. `write_baseline_report` saves everything as new files
-in a new folder under the run's `reports/`.
+in a new folder under the run's `reports/`. `write_probe_report` does the same for the held-out
+report of the linear probe (`coralid.probe`).
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from coralid.genera import resolve_genera
 from coralid.orientation import ORIENTATIONS, add_orientation, image_orientations
 from coralid.portrait_impact import CAUTION
 from coralid.predictions import normalize_keys
+from coralid.probe import ProbeReport
 
 GROUPS = ("all", *ORIENTATIONS)
 
@@ -228,4 +230,31 @@ def write_baseline_report(
         report.distribution[group].to_csv(folder / f"distribution_{group}.csv")
     with open(folder / "summary.json", "x", encoding="utf-8") as f:
         f.write(json.dumps(report.to_dict(), indent=2) + "\n")
+    return folder
+
+
+def write_probe_report(
+    report: ProbeReport,
+    reports_dir: str | os.PathLike[str],
+    name: str,
+    date: str | None = None,
+) -> Path:
+    """Write the report as new files in `<reports_dir>/probe_<name>_<date>/` and return it.
+
+    `summary.json`, `per_genus.csv`, `confusion.csv`, `folds.csv` and `held_out.csv`. An existing
+    folder gets a `_2`, `_3`... suffix; no file is ever overwritten.
+    """
+    date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    folder = Path(reports_dir) / f"probe_{name}_{date}"
+    n = 1
+    while folder.exists():
+        n += 1
+        folder = Path(reports_dir) / f"probe_{name}_{date}_{n}"
+    folder.mkdir(parents=True)
+    report.evaluation.per_genus.to_csv(folder / "per_genus.csv")
+    report.evaluation.confusion.to_csv(folder / "confusion.csv")
+    pd.DataFrame(report.folds).to_csv(folder / "folds.csv", index=False)
+    report.held_out.to_csv(folder / "held_out.csv", index=False)
+    with open(folder / "summary.json", "x", encoding="utf-8") as f:
+        f.write(json.dumps(report.to_dict(), indent=2, default=str) + "\n")
     return folder
