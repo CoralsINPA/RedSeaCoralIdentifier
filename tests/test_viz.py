@@ -236,3 +236,13 @@ def test_the_funnel_chart_has_the_stages_and_the_orientation_shares():
     assert [t.get_text() for t in right.get_yticklabels()] == ["area", "aspect", "blurry"]
     widths = [round(p.get_width(), 1) for p in right.patches]
     assert widths == [33.3, 16.7, 0.0, 25.0, 0.0, 25.0]  # landscape x3, then portrait x3
+
+
+def test_a_number_column_gets_a_color_bar_and_a_panel_can_leave_it_out():
+    table = embedding_table(
+        [f"I.JPG#{i}" for i in range(3)], x=[0, 1, 2.0], y=[2, 1, 0.0], confidence=[0.2, 0.5, 0.9]
+    )
+    assert len(embedding_scatter(table, color="confidence").axes) == 2  # the map and its bar
+    assert len(embedding_scatter(table, color="confidence", legend=False).axes) == 1
+    named = table.assign(genus=["A", "B", "B"])
+    assert embedding_scatter(named, color="genus", legend=False).axes[0].get_legend() is None

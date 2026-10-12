@@ -213,6 +213,25 @@ class SegmentationComparison:
         """A JSON-friendly summary (the per-photo table is saved as CSV)."""
         return {"verdict": self.verdict, "reasons": self.reasons, **self.summary}
 
+    def report_lines(self, min_area: float = 25000) -> list[str]:
+        """The verdict, its reasons and the totals as lines of text (None-safe, for a notebook)."""
+        s = self.summary
+
+        def pct(value: float | None) -> str:
+            return "n/a" if value is None else f"{value:.1%}"
+
+        ratio = "n/a" if s["count_ratio"] is None else f"x{s['count_ratio']:.2f}"
+        iou = s["mean_best_iou"]
+        lines = [
+            f"{self.verdict}: {s['n_compared']} of {s['n_photos']} photos compared "
+            f"({s['status_counts']})",
+            f"masks: {s.get('n_saved', 0)} saved, {s.get('n_new', 0)} new ({ratio})",
+            f"found again (IoU >= {IOU_MATCH}): all masks {pct(s['share_found'])}, "
+            f"large masks (area >= {min_area:,.0f}) {pct(s['share_found_large'])}",
+            "mean best IoU of a saved mask: " + ("n/a" if iou is None else f"{iou:.3f}"),
+        ]
+        return lines + [f"  - {reason}" for reason in self.reasons]
+
 
 def _ratio(num: float, den: float) -> float | None:
     return float(num / den) if den else None

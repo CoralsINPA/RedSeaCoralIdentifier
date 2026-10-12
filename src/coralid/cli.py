@@ -42,6 +42,7 @@ from coralid.jobs import (
     train_probe,
 )
 from coralid.probe import ProbeError
+from coralid.reports import probe_report_lines
 from coralid.segmentation import (
     SegmentationError,
     list_images,
@@ -316,20 +317,8 @@ def _train_probe(args: argparse.Namespace) -> int:
     report, data, folder = train_probe(
         cfg, args.labels, name=args.name, compare_zero_shot=not args.no_zero_shot
     )
-    acc = report.accuracy
-    low, high = acc["ci95"] or (float("nan"), float("nan"))
-    print(
-        f"Held-out accuracy {acc['correct']}/{acc['total']} = {acc['accuracy']:.3f} "
-        f"({low:.3f}-{high:.3f}) on {report.n_labeled} labeled crops from {report.n_images} "
-        f"photos; always answering the commonest genus gives {report.majority_baseline:.3f}"
-    )
-    if report.zero_shot and report.zero_shot["total"]:
-        shot = report.zero_shot
-        done = f"{shot['correct']}/{shot['total']} = {shot['accuracy']:.3f}"
-        print(f"  zero-shot on the same crops: {done}")
-    for note in report.warnings:
-        print(f"  note: {note}")
-    print(f"  labels left out: {data.dropped}")
+    for line in probe_report_lines(report, data.dropped):
+        print(line)
     print(f"  report: {folder}")
     return 0
 

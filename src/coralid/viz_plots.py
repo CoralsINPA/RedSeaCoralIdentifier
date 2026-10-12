@@ -46,14 +46,16 @@ def embedding_scatter(
     alpha: float = 0.6,
     cmap: str = "nipy_spectral",
     palette: dict[str, Any] | None = None,
+    legend: bool = True,
 ) -> Any:
     """A 2-D map of the rows of `table` (columns `x` and `y`), colored by `color`; returns a Figure.
 
     A numeric `color` column is drawn on the color map `cmap`. Any other column (the predicted
     genus, say) is drawn category by category with a legend that counts each; `palette`
     (`category_palette`) fixes the colors, so that several panels agree, and a value it does not
-    have is drawn light gray. Pass `ax` to draw into a panel of your own figure (the figure of
-    that axes is returned).
+    have is drawn light gray. A number column gets a color bar. `legend=False` leaves out the
+    legend and the color bar (for the first of two panels that share them). Pass `ax` to draw
+    into a panel of your own figure (the figure of that axes is returned).
     """
     from matplotlib.figure import Figure
 
@@ -72,16 +74,17 @@ def embedding_scatter(
                 alpha=alpha,
                 label=f"{name} ({int(rows.sum())})",
             )
-        ax.legend(
-            title=color,
-            fontsize=7,
-            markerscale=2,
-            loc="center left",
-            bbox_to_anchor=(1.0, 0.5),
-            frameon=False,
-        )
+        if legend:
+            ax.legend(
+                title=color,
+                fontsize=7,
+                markerscale=2,
+                loc="center left",
+                bbox_to_anchor=(1.0, 0.5),
+                frameon=False,
+            )
     else:
-        ax.scatter(
+        points = ax.scatter(
             table[x],
             table[y],
             c=table[color] if color else "royalblue",
@@ -89,6 +92,8 @@ def embedding_scatter(
             s=s,
             alpha=alpha,
         )
+        if color is not None and legend:
+            ax.figure.colorbar(points, ax=ax, shrink=0.8, label=color)
     ax.set_xlabel(x)
     ax.set_ylabel(y)
     if title:

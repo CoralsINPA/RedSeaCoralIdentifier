@@ -14,6 +14,7 @@ from coralid.parity_segmentation import (
     NOT_SEGMENTED,
     PASS,
     WARN,
+    SegmentationComparison,
     check_config,
     choose_check_photos,
     compare_masks,
@@ -409,3 +410,25 @@ def test_the_check_is_saved_as_new_files(tmp_path):
     assert summary["verdict"] == PASS and summary["image_names"] == check.image_names
     assert summary["scratch_run"] == str(check.config.run_dir)
     assert len(pd.read_csv(first / "photos.csv")) == 2
+
+
+def comparison_of(table):
+    summary = summarize(table)
+    verdict, reasons = verdict_for(summary)
+    return SegmentationComparison(table, summary, verdict, reasons)
+
+
+def test_the_report_lines_are_safe_when_nothing_could_be_compared():
+    nothing = pd.DataFrame([{"image_name": "A.JPG", "status": NOT_SEGMENTED}])
+    lines = comparison_of(nothing).report_lines()
+    assert lines[0].startswith("FAIL: 0 of 1 photos compared")
+    assert "all masks n/a, large masks (area >= 25,000) n/a" in lines[2]
+    assert "  - no photo could be compared" in lines
+
+
+def test_the_report_lines_give_the_numbers_a_person_pastes_back():
+    lines = comparison_of(photos_table()).report_lines()
+    assert lines[0].startswith("PASS: 1 of 1 photos compared")
+    assert lines[1] == "masks: 10 saved, 10 new (x1.00)"
+    assert "all masks 100.0%, large masks (area >= 25,000) 100.0%" in lines[2]
+    assert lines[3] == "mean best IoU of a saved mask: 0.990"

@@ -219,3 +219,28 @@ def test_new_report_folders_are_never_reused(tmp_path):
     assert first.name == "segcheck_2026-10-12" and second.name == "segcheck_2026-10-12_2"
     assert named.name == "probe_feats_2026-10-12"
     assert all(p.is_dir() for p in (first, second, named))
+
+
+def test_the_probe_report_lines_are_what_the_command_prints():
+    from types import SimpleNamespace
+
+    from coralid.reports import probe_report_lines
+
+    report = SimpleNamespace(
+        accuracy={"correct": 3, "total": 5, "accuracy": 0.6, "ci95": (0.23, 0.88)},
+        n_labeled=5,
+        n_images=4,
+        majority_baseline=0.4,
+        zero_shot={"correct": 2, "total": 5, "accuracy": 0.4},
+        warnings=["classes with fewer than 5 labels: Pavona (1)"],
+        dropped={"blank": 1},
+    )
+    assert probe_report_lines(report) == [
+        "Held-out accuracy 3/5 = 0.600 (0.230-0.880) on 5 labeled crops from 4 photos; "
+        "always answering the commonest genus gives 0.400",
+        "  zero-shot on the same crops: 2/5 = 0.400",
+        "  note: classes with fewer than 5 labels: Pavona (1)",
+        "  labels left out: {'blank': 1}",
+    ]
+    report.zero_shot = None
+    assert len(probe_report_lines(report, {"x": 2})) == 3

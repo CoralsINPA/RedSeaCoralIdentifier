@@ -246,6 +246,25 @@ def write_baseline_report(
     return folder
 
 
+def probe_report_lines(report: ProbeReport, dropped: dict[str, int] | None = None) -> list[str]:
+    """The printed summary of a probe report (the command line and the notebook show the same)."""
+    acc = report.accuracy
+    low, high = acc["ci95"] or (float("nan"), float("nan"))
+    share = acc["accuracy"] if acc["accuracy"] is not None else float("nan")
+    lines = [
+        f"Held-out accuracy {acc['correct']}/{acc['total']} = {share:.3f} ({low:.3f}-{high:.3f}) "
+        f"on {report.n_labeled} labeled crops from {report.n_images} photos; always answering "
+        f"the commonest genus gives {report.majority_baseline:.3f}"
+    ]
+    if report.zero_shot and report.zero_shot["total"]:
+        shot = report.zero_shot
+        done = f"{shot['correct']}/{shot['total']} = {shot['accuracy']:.3f}"
+        lines.append(f"  zero-shot on the same crops: {done}")
+    lines += [f"  note: {note}" for note in report.warnings]
+    lines.append(f"  labels left out: {dropped if dropped is not None else report.dropped}")
+    return lines
+
+
 def write_probe_report(
     report: ProbeReport,
     reports_dir: str | os.PathLike[str],
