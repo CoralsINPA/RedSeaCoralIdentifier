@@ -14,9 +14,16 @@
 5. stops with "restart the runtime" if pip replaced a package this session may have loaded.
 
 **Bootstrap.** `coralid.colab` cannot be imported before the repository is on disk, so the first
-cell of a notebook is `BOOTSTRAP_CELL`: it clones the repository if needed, puts its `src/` folder
-on `sys.path` (`coralid/__init__.py` and this module need only the standard library), and calls
-`setup()`, which does everything else. Copy the cell, edit its settings block, and nothing more.
+cell of a notebook is `BOOTSTRAP_CELL`: it clones the repository (or, if an earlier session of
+this runtime left a clone, brings it to the branch head first, so that no old `coralid.colab` is
+ever imported), puts its `src/` folder on `sys.path` (`coralid/__init__.py` and this module need
+only the standard library), and calls `setup()`, which does everything else. Copy the cell, edit
+its settings block, and nothing more.
+
+**A session that already loaded `coralid`.** Python keeps imported modules in memory, so pulling
+new commits while this session has `coralid` loaded would run old code. `setup()` remembers the
+commit it activated (`CORALID_LOADED_COMMIT`); if it runs again after the branch moved, it stops
+and says to restart the runtime.
 """
 
 from __future__ import annotations
@@ -40,6 +47,7 @@ DEFAULT_REPO_URL = "https://github.com/CoralsINPA/RedSeaCoralIdentifier"
 DEFAULT_REPO_DIR = "/content/RedSeaCoralIdentifier"
 DRIVE_MOUNT = "/content/drive"
 DATA_ROOT_ENV = "CORALID_DATA_ROOT"  # the same variable as `coralid.config.DATA_ROOT_ENV`
+LOADED_COMMIT_ENV = "CORALID_LOADED_COMMIT"  # the commit this Python process activated
 
 KNOWN_EXTRAS = ("clip", "dino", "segment", "cluster", "probe", "viz", "dev")
 # Packages that are usually already loaded in a Colab session: replacing one needs a restart.
@@ -77,9 +85,20 @@ REPO_DIR = "/content/RedSeaCoralIdentifier"
 EXTRAS = "clip,viz"
 # ==================================================================================================
 
-if not os.path.isdir(f"{REPO_DIR}/.git"):  # the package cannot install itself before it exists
-    clone = ["git", "clone", "--recurse-submodules", "--branch", BRANCH, REPO_URL, REPO_DIR]
-    subprocess.run(clone, check=True)
+# The package cannot install itself before it exists. A clone left by an earlier session of this
+# runtime is brought to the branch head BEFORE anything is imported from it.
+if os.path.isdir(f"{REPO_DIR}/.git"):
+    steps = [
+        ["git", "-C", REPO_DIR, "fetch", "origin", BRANCH],
+        ["git", "-C", REPO_DIR, "checkout", BRANCH],
+        ["git", "-C", REPO_DIR, "pull", "--ff-only", "origin", BRANCH],
+        ["git", "-C", REPO_DIR, "submodule", "update", "--init"],
+    ]
+else:
+    steps = [["git", "clone", "--recurse-submodules", "--branch", BRANCH, REPO_URL, REPO_DIR]]
+for step in steps:
+    print("$", " ".join(step))
+    subprocess.run(step, check=True)
 sys.path.insert(0, f"{REPO_DIR}/src")  # enough to import coralid.colab (standard library only)
 
 from coralid.colab import setup  # noqa: E402
@@ -158,6 +177,16 @@ def restart_message(replaced: dict[str, tuple[str, str | None]]) -> str:
     return (
         "pip replaced packages that this Python session may already have loaded: "
         f"{changes}\n\n>>> RESTART THE RUNTIME now (Runtime > Restart session), "
+        "then run this cell again and continue. <<<"
+    )
+
+
+def stale_session_message(loaded: str, current: str) -> str:
+    """The error text for a branch that moved while this session had `coralid` loaded."""
+    return (
+        f"The branch moved from commit {loaded} to {current} while this Python session had "
+        "coralid loaded, and Python keeps the old modules in memory."
+        "\n\n>>> RESTART THE RUNTIME now (Runtime > Restart session), "
         "then run this cell again and continue. <<<"
     )
 
@@ -253,6 +282,11 @@ def setup(
     )
     commit = (head.stdout or "").strip()
     echo(f"\ncoralid {coralid.__version__} at commit {commit} (branch {branch})")
+    loaded = os.environ.get(LOADED_COMMIT_ENV)
+    if loaded and commit and loaded != commit:
+        raise RuntimeError(stale_session_message(loaded, commit))
+    if commit:
+        os.environ[LOADED_COMMIT_ENV] = commit
     if replaced:
         raise RuntimeError(restart_message(replaced))
     echo("\nSetup done. No restart needed.")

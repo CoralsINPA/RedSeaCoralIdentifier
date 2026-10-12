@@ -2,6 +2,7 @@ import importlib
 import os
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,6 +21,7 @@ from coralid.colab import (
     replaced_packages,
     restart_message,
     setup,
+    stale_session_message,
 )
 
 
@@ -168,7 +170,10 @@ class Recorder:
 
 @pytest.fixture
 def env_cleanup(monkeypatch):
-    monkeypatch.delenv(colab.DATA_ROOT_ENV, raising=False)
+    # set-then-delete, so that monkeypatch restores "absent" when setup() sets them in the test
+    for name in (colab.DATA_ROOT_ENV, colab.LOADED_COMMIT_ENV):
+        monkeypatch.setenv(name, "x")
+        monkeypatch.delenv(name)
 
 
 def test_setup_runs_the_notebooks_setup_cell(tmp_path, data_root, env_cleanup):
@@ -280,6 +285,50 @@ def test_setup_warns_when_the_two_opencv_builds_differ(tmp_path, data_root, env_
     assert any("opencv-python and opencv-python-headless differ" in line for line in lines)
 
 
+def test_setup_remembers_the_commit_it_activated(tmp_path, data_root, env_cleanup):
+    setup(
+        data_root=str(data_root),
+        repo_dir=str(tmp_path / "r"),
+        mount=False,
+        runner=Recorder(),
+        versions=lambda: {},
+        echo=lambda line: None,
+    )
+    assert os.environ[colab.LOADED_COMMIT_ENV] == "abc1234"
+
+
+def test_running_setup_again_on_the_same_commit_is_fine(tmp_path, data_root, env_cleanup):
+    kwargs = dict(
+        data_root=str(data_root),
+        repo_dir=str(tmp_path / "r"),
+        mount=False,
+        runner=Recorder(),
+        versions=lambda: {},
+        echo=lambda line: None,
+    )
+    setup(**kwargs)
+    assert setup(**kwargs).commit == "abc1234"
+
+
+def test_setup_demands_a_restart_when_the_branch_moved_under_a_loaded_session(
+    tmp_path, data_root, env_cleanup, monkeypatch
+):
+    """Re-running the first cell after a push: this process still holds the old modules."""
+    monkeypatch.setenv(colab.LOADED_COMMIT_ENV, "old0000")
+    with pytest.raises(RuntimeError, match="RESTART THE RUNTIME") as err:
+        setup(
+            data_root=str(data_root),
+            repo_dir=str(tmp_path / "r"),
+            mount=False,
+            runner=Recorder(),  # HEAD is abc1234 now
+            versions=lambda: {},
+            echo=lambda line: None,
+        )
+    assert str(err.value) == stale_session_message("old0000", "abc1234")
+    assert "old0000" in str(err.value) and "abc1234" in str(err.value)
+    assert os.environ[colab.LOADED_COMMIT_ENV] == "old0000"  # not updated: it is still stale
+
+
 # ------------------------------------------------------------------------- the first cell
 
 
@@ -303,11 +352,61 @@ def test_the_bootstrap_cell_clones_then_hands_over_to_setup(tmp_path, monkeypatc
     assert kw["data_root"] == namespace["DATA_ROOT"] == colab.DEFAULT_DATA_ROOT
     assert kw["branch"] == colab.DEFAULT_BRANCH and kw["repo_url"] == colab.DEFAULT_REPO_URL
     assert namespace["env"] == "ENV"
-    # an existing clone is not cloned again
+    # an existing clone is not cloned again: it is brought to the branch head
     (repo / ".git").mkdir(parents=True)
     commands.clear()
     exec(cell, {"__name__": "__notebook__"})
-    assert commands == []
+    assert [c for c, _ in commands] == git_steps(
+        str(repo), colab.DEFAULT_BRANCH, colab.DEFAULT_REPO_URL, cloned=True
+    )
+    assert all(kw == {"check": True} for _, kw in commands)
+
+
+def test_the_bootstrap_updates_an_old_clone_before_importing_coralid_colab(
+    tmp_path, monkeypatch, capsys
+):
+    """The stale-clone bug: an old clone's coralid.colab used to be imported before the pull.
+
+    The clone here holds a stand-in `coralid` package whose `colab.py` logs when it is imported.
+    The log must show the four update commands first, and only then the import.
+    """
+    repo = tmp_path / "RedSeaCoralIdentifier"
+    package = repo / "src" / "coralid"
+    package.mkdir(parents=True)
+    (repo / ".git").mkdir()
+    log = tmp_path / "events.log"
+    (package / "__init__.py").write_text("")
+    (package / "colab.py").write_text(
+        textwrap.dedent(
+            f"""\
+            LOG = {str(log)!r}
+            open(LOG, "a").write("import coralid.colab\\n")
+
+
+            def setup(*args, **kwargs):
+                open(LOG, "a").write("setup " + kwargs["repo_dir"] + "\\n")
+                return "ENV"
+            """
+        )
+    )
+
+    def fake_run(command, **kwargs):
+        with open(log, "a") as f:
+            f.write("$ " + " ".join(command) + "\n")
+
+    cell = BOOTSTRAP_CELL.replace('"/content/RedSeaCoralIdentifier"', repr(str(repo)))
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    # a fresh interpreter has neither module loaded: hide the real ones so the clone's is imported
+    monkeypatch.delitem(sys.modules, "coralid")
+    monkeypatch.delitem(sys.modules, "coralid.colab")
+    namespace = {"__name__": "__notebook__"}
+    exec(cell, namespace)
+    events = log.read_text().splitlines()
+    update = [" ".join(c) for c in git_steps(str(repo), colab.DEFAULT_BRANCH, "", cloned=True)]
+    assert events == ["$ " + u for u in update] + ["import coralid.colab", f"setup {repo}"]
+    assert namespace["env"] == "ENV"
+    assert capsys.readouterr().out.count("$ git") == 4  # the steps are shown to the user
 
 
 def test_the_bootstrap_needs_only_the_standard_library_to_import_colab():
