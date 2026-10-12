@@ -261,7 +261,7 @@ def run_embeddings(
 
 def _count(consecutive: int, limit: int) -> int:
     if consecutive >= limit:
-        raise RuntimeError(
+        raise EmbedError(
             f"Stopping after {consecutive} consecutive failures; see the failure log. "
             "Finished images are saved; fix the cause and run again to resume."
         )
