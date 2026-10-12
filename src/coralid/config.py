@@ -43,6 +43,7 @@ class Paths:
     predictions_dir: str = "predictions"
     reviews_dir: str = "reviews"
     reports_dir: str = "reports"
+    segmentation_dir: str = "segmentation"  # the segmentation job's failure log and sidecars
     ground_truth_csv: str = "ground_truth_genus_counts.csv"
 
     def resolve_root(self) -> Path:
@@ -69,6 +70,9 @@ class SamConfig:
     crop_n_points_downscale_factor: int = 2
     min_mask_region_area: int = 100
     max_side: int = 2560  # photos larger than this are downscaled before segmentation
+    # Also keep CoralSCOP's per-mask `cate_preds` and `fc_features` (CM cell 8 threw them away).
+    # They go to a sidecar file per photo, never into the mask JSON. Off by default.
+    save_features: bool = False
 
 
 @dataclass
@@ -136,12 +140,38 @@ class ZeroShotConfig:
     logit_scale: float = 100.0
 
 
+@dataclass
+class EmbedConfig:
+    """Embedding job settings (CM cells 9 and 11): which DINO model."""
+
+    model: str = "dinov2-s14"  # or "dinovdeau-l"
+    batch_size: int | None = None  # None: the model's own (DINOv2 64, DinoVdeau 16)
+
+
+@dataclass
+class ProbeConfig:
+    """Linear-probe settings (V2 Phase 2, redone: grouped cross-validation, held-out report)."""
+
+    features: str = "finetuned-bioclip__masked"  # stem of the file in <run>/features/
+    labels: str | None = None  # labels table (CSV or parquet), relative to the data root
+    label_column: str = "genus"
+    label_set: str = "hard20"  # labels outside it are dropped, and counted in the report
+    n_splits: int = 5
+    C: float = 1.0
+    class_weight: str | None = "balanced"
+    standardize: bool = True
+    max_iter: int = 2000
+    seed: int = 0
+
+
 _SECTIONS: dict[str, type] = {
     "paths": Paths,
     "sam": SamConfig,
     "filters": FilterConfig,
     "crops": CropConfig,
     "zero_shot": ZeroShotConfig,
+    "embed": EmbedConfig,
+    "probe": ProbeConfig,
 }
 
 
@@ -165,6 +195,8 @@ class Config:
     filters: FilterConfig = field(default_factory=FilterConfig)
     crops: CropConfig = field(default_factory=CropConfig)
     zero_shot: ZeroShotConfig = field(default_factory=ZeroShotConfig)
+    embed: EmbedConfig = field(default_factory=EmbedConfig)
+    probe: ProbeConfig = field(default_factory=ProbeConfig)
 
     @property
     def run_name(self) -> str:
@@ -217,6 +249,11 @@ class Config:
         return self.run_dir / self.paths.reports_dir
 
     @property
+    def segmentation_dir(self) -> Path:
+        """Folder for the segmentation job's failure log and optional sidecars."""
+        return self.run_dir / self.paths.segmentation_dir
+
+    @property
     def ground_truth_path(self) -> Path:
         """The survey genus counts file."""
         return self._under_root(self.paths.ground_truth_csv)
@@ -225,6 +262,11 @@ class Config:
     def checkpoint_path(self) -> Path:
         """The CoralSCOP checkpoint."""
         return self._under_root(self.sam.checkpoint)
+
+    @property
+    def probe_labels_path(self) -> Path | None:
+        """The probe's labels table, or None if the config names none."""
+        return None if not self.probe.labels else self._under_root(self.probe.labels)
 
     def _under_root(self, relative: str) -> Path:
         path = Path(relative)

@@ -163,3 +163,28 @@ def test_write_meta_handles_numpy_values(tmp_path):
     assert meta["n_rows"] == 3
     assert meta["shape"] == [2, 3]
     assert meta["config"] is None
+
+
+def test_the_stage_c_settings_default_to_the_documented_values(monkeypatch, tmp_path):
+    from coralid.config import EmbedConfig, ProbeConfig
+
+    assert SamConfig().save_features is False  # CoralSCOP's extra outputs are opt-in
+    assert EmbedConfig() == EmbedConfig(model="dinov2-s14", batch_size=None)
+    probe = ProbeConfig()
+    assert (probe.n_splits, probe.class_weight, probe.label_set) == (5, "balanced", "hard20")
+    assert probe.labels is None and probe.features == "finetuned-bioclip__masked"
+    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
+    cfg = Config()
+    assert cfg.segmentation_dir == cfg.run_dir / "segmentation"
+    assert cfg.probe_labels_path is None
+    cfg.probe.labels = "labels/expert.csv"
+    assert cfg.probe_labels_path == tmp_path / "labels" / "expert.csv"
+
+
+def test_a_config_written_before_stage_c_still_loads(tmp_path):
+    """The sections added in Stage C are optional: older YAML files keep working."""
+    old = tmp_path / "old.yaml"
+    old.write_text(yaml.safe_dump({"zero_shot": {"model": "bioclip2"}, "sam": {"max_side": 2560}}))
+    cfg = load_config(old)
+    assert cfg.zero_shot.model == "bioclip2"
+    assert cfg.embed.model == "dinov2-s14" and cfg.sam.save_features is False
