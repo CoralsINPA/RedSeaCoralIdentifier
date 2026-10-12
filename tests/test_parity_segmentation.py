@@ -6,8 +6,7 @@ import pandas as pd
 import pytest
 
 from coralid.config import Config, ConfigError, Paths, SamConfig
-from coralid.masks import load_mask_json
-from coralid.parity_segmentation import (
+from coralid.mask_compare import (
     COMPARED,
     FAIL,
     FRAME_DIFFERS,
@@ -15,15 +14,18 @@ from coralid.parity_segmentation import (
     PASS,
     WARN,
     SegmentationComparison,
-    check_config,
-    choose_check_photos,
     compare_masks,
     compare_segmentations,
     iou_matrix,
     match_masks,
-    run_segmentation_check,
     summarize,
     verdict_for,
+)
+from coralid.masks import load_mask_json
+from coralid.parity_segmentation import (
+    check_config,
+    choose_check_photos,
+    run_segmentation_check,
     write_segmentation_check,
 )
 from tests.helpers import make_annotation, rect_mask, write_json_dir
