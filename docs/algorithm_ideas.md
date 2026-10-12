@@ -2,8 +2,8 @@
 
 Collected on 2026-10-11, during the code organization, for the algorithm-planning step that follows it.
 - **Nothing here is decided or started.** Each idea gives its evidence (with how solid it is), how to try it, what it costs, and what it needs: expert time, analyst time, GPU, or code only.
-- **Prerequisite:** the new baseline from refactor Stage B, meaning the 20-genus zero-shot run over all images with correct crops and saved embeddings. Ideas are compared against it.
-- **Background:** `docs/agent_memory/README.md` ("Current understanding"), `docs/agent_memory/assaf_review_confusion_matrix.md`, `docs/agent_memory/sessions/2026-10-11_parity_run_1.md`, and plan §6 of `docs/organization_plan.md`.
+- **Baseline:** the 20-genus zero-shot run over all images, with correct crops and saved embeddings, from refactor Stage B. It ran on 2026-10-12 (`docs/agent_memory/sessions/2026-10-12_baseline_run.md`). Ideas are compared against it.
+- **Background:** `docs/agent_memory/README.md` ("Current understanding"), `docs/agent_memory/assaf_review_confusion_matrix.md`, `docs/agent_memory/sessions/2026-10-11_parity_run_1.md`, `docs/agent_memory/sessions/2026-10-12_baseline_run.md`, and plan §6 of `docs/organization_plan.md`.
 
 ## Where we stand
 
@@ -11,16 +11,21 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
   - CoralSCOP masks (run `iou60_sta55_pts32`): 44,211 masks.
   - Filters (area, aspect, containment, blur): **16,080** crops kept.
   - BioCLIP-FT zero-shot over the **20 hard genera** with `taxonomy_v1` prompts; confidence = softmax(100 · cosine).
-- **Expert test set** (`assaf_expert_test_set.csv`): 77 rows.
+- **Baseline files:** `<run>/predictions/finetuned-bioclip__taxonomy_v1__hard20__all.parquet` and `<run>/features/finetuned-bioclip__masked.npz` (16,080 × 512).
+  - Mean confidence 0.494; 25.8% of crops at 0.85 or more.
+- **Expert test set** (`assaf_expert_test_set.csv`): 77 rows, 67 on landscape photos and 10 on portrait photos.
   - The v1 run got **36/54 = 66.7%** on crops whose genus is in the label set (95% interval 53-78%).
+  - **The baseline gets 34/51 = 66.7% on the landscape rows**, identical to v1 (no prediction changed).
+  - The 10 portrait rows can't score it: Assaf labeled the legacy crops, which were cut from the wrong place.
   - Error structure (from the review's matrix):
     - 13 of 23 errors are the massive / merulinid complex (Dipsastraea alone 6 of 7 wrong);
     - 5 are soft corals with no class;
     - 5 are other.
 - **Strengths:** the model is reliable on distinctive genera (Acropora, Platygyra, Porites, Millepora, Montipora, Stylophora, Hydnophora, Echinopora, Pocillopora). They are 67% of colonies in the survey counts (2,463 of 3,659).
-- **Biases:**
-  - Pavona is 14-18% of predictions vs 0.4% in the survey;
-  - soft corals get forced into hard genera (Acropora precision 56%, mostly because of them).
+- **Biases** (baseline genus mix against the survey, the 20 genera only):
+  - **over-predicted:** Pavona 15.1% vs 0.44% (34.5×), Leptastrea 5.5×, Montipora 3.7×, Porites 1.8×, Favia 1.6×;
+  - **under-predicted:** Dipsastraea 0.14×, Galaxea 0.13×, Cyphastrea 0.28×, Platygyra 0.33×;
+  - soft corals get forced into hard genera (Acropora precision 5/9 on the landscape expert rows, mostly because of them).
 - **Known data defects, now fixed in code:**
   - the legacy code mis-cropped the 221 portrait photos (13%);
   - some expert labels were therefore given on mis-cut crops.
@@ -30,7 +35,7 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 | # | Idea | Why first | Needs |
 |---|---|---|---|
 | 1 | A bigger, better evaluation set | Today's set can't show a gain under about 10 points | Assaf's time |
-| 2 | A real crop-quality gate (blur) | Most unidentifiable crops were blurred and passed | Code + existing labels |
+| 2 | A real crop-quality gate (blur) | Unidentifiable crops looked blurred and passed (7 of the 16 were mis-cuts; check the other 9) | Code + existing labels |
 | 3 | A reject / "other" outcome | Soft corals and junk inflate false positives | Code |
 | 4 | Linear probe on the embeddings | The standard big jump over zero-shot once labels exist | Labels from #1 |
 | 5 | Calibration and prior correction | Fixes Pavona over-prediction; makes thresholds mean something | Labels from #1 |
@@ -50,9 +55,9 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 - Already on the project's horizon ("~300 crops, 12-15 per genus" in `docs/agent_memory/project_context.md`).
 
 **1.2 Re-review the expert crops from portrait photos.**
-- Assaf saw mis-cut crops for these.
-- Stage B's portrait-impact report lists them. Re-show them, correctly cut.
-- This also tests whether some "unidentifiable" calls were caused by the bad cut rather than by blur.
+- Assaf saw mis-cut crops for these: 10 rows, listed in `<run>/reports/portrait_impact_2026-10-12/expert_portrait_rows.csv`. Re-show them, correctly cut.
+- **7 of the 10 are "unidentifiable"**, against 9 of 67 on landscape photos (one-sided Fisher p = 0.0004). Two of them got the same legacy probability vector, most likely from an empty crop. The bad cut, not blur, explains these 7.
+- The 3 portrait rows of the old Millepora audit need the same re-review.
 
 **1.3 Calibrate the non-expert analyst against Assaf.**
 - About 40 crops labeled by both people.
@@ -75,9 +80,13 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 ## 2. Crop-quality gate (blur and size)
 
 **Evidence.**
-- With correct crops, the blur filter (Laplacian variance ≥ 80 on the masked crop) rejects only **117 of 16,197** candidates (0.7%).
+- With correct crops, the blur filter (Laplacian variance ≥ 80 on the masked crop) rejects only **117 of 16,197** candidates (0.7%). The threshold sits below the 1st percentile of kept crops (108; median 558).
 - The mask's edge against the black background reads as sharpness, so blurry corals pass.
 - The user reports that **most crops Assaf couldn't identify were simply blurred.**
+- **But 7 of the 16 unidentifiable expert crops were mis-cut portrait crops** (see 1.2), and their correct cuts aren't unusually blurry by the current measure (10th-87th percentile).
+  - That leaves **9 landscape crops** as the evidence.
+  - First step, minutes: join them to the manifest's `sharpness` and look at them next to the 51 identified landscape crops.
+  - If they are blurred, build the gate. If not, find out what else makes a crop unidentifiable (partial colony, several colonies, distance) using the reasons recorded in 1.1.
 
 **Ideas.**
 - **Measure focus only on the coral:** inside an eroded mask, so the outline doesn't count; or on the unmasked crop.
@@ -137,7 +146,8 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 **Evidence.**
 - Confidence is softmax(100 · cosine) for every backbone, so a threshold such as 0.85 is arbitrary and not comparable across models.
 - Several wrong predictions had confidence above 0.9.
-- Pavona is 14-18% of predictions vs 0.4% in the survey.
+- Pavona is 15.1% of the baseline's crops (2,425) vs 0.44% of the survey's colonies. The expert set has a single Pavona row, so its precision is unknown.
+- At the other end, Dipsastraea is 0.14× and Platygyra 0.33× its survey share. Platygyra is right 5 of 5 times on the expert set, so its shortfall is missed colonies.
 
 **Ideas.**
 - **Temperature scaling** (one parameter) fitted on expert labels, which makes confidence meaningful.
@@ -202,4 +212,6 @@ Minor: SAM's bbox is one pixel short (`w = right - left` on inclusive indices); 
   - `actual_genus` recorded for every "no";
   - about 40 crops double-labeled by Assaf.
 - The old 58.9% figure is a provisional non-expert estimate on V2's 24-genus predictions.
+  - Restricted to the 126 landscape rows, where the crops were cut correctly, it is 66 yes / 44 no / 16 unsure: **60.0% of the decided (95% 51-69%)**.
+  - The 3 portrait rows were judged on mis-cut crops.
 - **Likely confusers to watch:** Echinopora, Seriatopora, Pavona, and soft corals (Sinularia was a frequent runner-up in V2). With the 20-genus label set and no reject option, soft corals may land on Millepora more often.
