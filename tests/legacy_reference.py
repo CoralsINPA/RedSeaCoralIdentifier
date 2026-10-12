@@ -142,3 +142,49 @@ def get_clean_masked_square_crop(img, anno, target_h, target_w):
         value=[0, 0, 0],
     )
     return square_crop
+
+
+def legacy_export_json(masks, img_name, width, height):
+    """CM cell 8, step "3. JSON EXPORT", verbatim: the dict the notebook wrote with json.dump."""
+    output_json = {}
+    output_json["image"] = {
+        "image_id": 0,
+        "width": width,
+        "height": height,
+        "file_name": img_name,
+    }
+
+    out_anno = []
+    anno_id = 0
+    total_coral_area = 0
+
+    for m in masks:
+        seg = m["segmentation"]
+        fortran_mask = np.asfortranarray(seg.astype(np.uint8))
+        compressed_rle = mask_util.encode(fortran_mask)
+
+        if isinstance(compressed_rle["counts"], bytes):
+            compressed_rle["counts"] = compressed_rle["counts"].decode("utf-8")
+        else:
+            compressed_rle["counts"] = str(compressed_rle["counts"], encoding="utf-8")
+
+        area = m["area"]
+        total_coral_area += area
+
+        anno_json = {
+            "segmentation": compressed_rle,
+            "bbox": m["bbox"],
+            "area": area,
+            "predicted_iou": float(m["predicted_iou"]),
+            "crop_box": m["crop_box"],
+            "stability_score": float(m["stability_score"]),
+            "point_coords": m["point_coords"].tolist()
+            if isinstance(m["point_coords"], np.ndarray)
+            else m["point_coords"],
+            "id": anno_id,
+        }
+        out_anno.append(anno_json)
+        anno_id += 1
+
+    output_json["annotations"] = out_anno
+    return output_json
