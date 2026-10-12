@@ -90,3 +90,54 @@ def test_crop_from_an_image_loaded_in_the_mask_frame_lands_on_the_mask_pixels(tm
     # holds only dark noise, not the coral.
     wrong = bbox_crop(photo, bbox, padding_pct=0.0)
     assert wrong.max() < 100
+
+
+# ------------------------------------------------------------------------- frames for segmentation
+
+
+@pytest.mark.parametrize(
+    "size, frame",
+    [
+        ((3648, 2736), (2560, 1920)),  # the camera of the survey: 4:3 landscape
+        ((2736, 3648), (1920, 2560)),  # the same camera held upright
+        ((4000, 3000), (2560, 1920)),
+        ((6000, 4000), (2560, 1706)),  # 3:2, truncated with int()
+        ((4608, 2592), (2560, 1440)),
+        ((2560, 1920), (2560, 1920)),  # already in the frame
+        ((1600, 1200), (1600, 1200)),  # smaller photos keep their size
+    ],
+)
+def test_frame_for_matches_the_legacy_arithmetic(size, frame):
+    from coralid.images import frame_for
+
+    width, height = size
+    legacy = (width, height)
+    if max(height, width) > 2560:  # CM cell 8, verbatim
+        scale = 2560 / max(height, width)
+        legacy = (int(width * scale), int(height * scale))
+    assert frame_for(width, height) == legacy == frame
+
+
+def test_load_for_segmentation_returns_the_image_in_its_frame(tmp_path):
+    from coralid.images import load_for_segmentation
+
+    rng = np.random.RandomState(1)
+    rgb = rng.randint(0, 256, size=(300, 400, 3), dtype=np.uint8)
+    path = _write_png(tmp_path / "p.png", rgb)
+    out, frame = load_for_segmentation(path, max_side=200)
+    assert frame == (200, 150) and out.shape == (150, 200, 3)
+    # the same pixels the legacy cell fed to the generator
+    bgr = cv2.resize(cv2.imread(str(path)), (200, 150))
+    np.testing.assert_array_equal(out, cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
+    # and the same pixels every later step sees when it loads the photo in the JSON's frame
+    np.testing.assert_array_equal(out, load_in_mask_frame(path, *frame))
+    small, small_frame = load_for_segmentation(path, max_side=1000)
+    assert small_frame == (400, 300)
+    np.testing.assert_array_equal(small, rgb)
+
+
+def test_load_for_segmentation_raises_for_a_bad_photo(tmp_path):
+    from coralid.images import load_for_segmentation
+
+    with pytest.raises(ImageReadError):
+        load_for_segmentation(tmp_path / "missing.jpg")

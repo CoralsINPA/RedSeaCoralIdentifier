@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 import pycocotools.mask as mask_util
 
-from coralid._atomic import atomic_write_text
+from coralid._atomic import atomic_write_text, atomic_write_text_exclusive
 
 Rle = dict[str, Any]
 Annotation = dict[str, Any]
@@ -218,15 +218,23 @@ def write_mask_json(
     height: int,
     annotations: Iterable[Annotation],
     note: str | None = None,
+    overwrite: bool = True,
 ) -> Path:
-    """Write a mask JSON in the legacy layout (`image`, `annotations`, optional `note`)."""
+    """Write a mask JSON in the legacy layout (`image`, `annotations`, optional `note`).
+
+    The file appears atomically. With `overwrite=False` an existing file is never replaced:
+    `FileExistsError` is raised instead (the segmentation job writes this way).
+    """
     out: dict[str, Any] = {
         "image": {"image_id": 0, "width": width, "height": height, "file_name": image_name},
         "annotations": list(annotations),
     }
     if note is not None:
         out["note"] = note
-    return atomic_write_text(path, json.dumps(out, indent=2))
+    text = json.dumps(out, indent=2)
+    if overwrite:
+        return atomic_write_text(path, text)
+    return atomic_write_text_exclusive(path, text)
 
 
 class AnnotationStore:

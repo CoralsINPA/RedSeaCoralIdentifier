@@ -210,6 +210,19 @@ def test_write_and_load_mask_json(tmp_path):
     assert load_mask_json(path2).note == "no masks"
 
 
+def test_write_mask_json_without_overwrite_never_replaces_a_file(tmp_path):
+    path = tmp_path / "IMG_1.json"
+    annos = [make_annotation(rect_mask((20, 30), 2, 9, 3, 12), 0)]
+    write_mask_json(path, "IMG_1.JPG", 30, 20, annos, overwrite=False)
+    first = path.read_bytes()
+    with pytest.raises(FileExistsError):
+        write_mask_json(path, "IMG_1.JPG", 30, 20, [], note="no masks", overwrite=False)
+    assert path.read_bytes() == first
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["IMG_1.json"]  # no temp file left
+    write_mask_json(path, "IMG_1.JPG", 30, 20, [], note="x")  # the default still replaces
+    assert load_mask_json(path).note == "x"
+
+
 def test_load_mask_json_rejects_malformed_files(tmp_path):
     (tmp_path / "a.json").write_text(json.dumps({"annotations": []}))
     with pytest.raises(MaskJsonError):

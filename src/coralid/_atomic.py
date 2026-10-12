@@ -32,3 +32,36 @@ def atomic_write_text(path: str | os.PathLike[str], text: str, encoding: str = "
     with atomic_path(path) as tmp:
         tmp.write_text(text, encoding=encoding)
     return Path(path)
+
+
+def atomic_write_text_exclusive(
+    path: str | os.PathLike[str], text: str, encoding: str = "utf-8"
+) -> Path:
+    """Create `path` with `text` atomically, and never replace an existing file.
+
+    The text is written to a temporary sibling first, so a crash leaves either no file or a
+    complete one. The final step is a hard link, which fails with `FileExistsError` if `path`
+    exists (even if another process created it a moment ago). Where hard links are not
+    supported (some network and FUSE drives) it falls back to a second existence check and a
+    rename. The temporary file keeps no `.json`-style suffix, so a leftover can never be mistaken
+    for a real file in a folder that is scanned by extension.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        raise FileExistsError(f"{target} exists; refusing to overwrite it")
+    tmp = target.with_name(f".{target.name}.tmp{os.getpid()}")
+    try:
+        tmp.write_text(text, encoding=encoding)
+        try:
+            os.link(tmp, target)
+        except FileExistsError:
+            raise FileExistsError(f"{target} exists; refusing to overwrite it") from None
+        except OSError:
+            if target.exists():
+                raise FileExistsError(f"{target} exists; refusing to overwrite it") from None
+            os.replace(tmp, target)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            tmp.unlink()
+    return target
