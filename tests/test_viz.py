@@ -7,16 +7,13 @@ import pytest
 
 pytest.importorskip("matplotlib")
 
-from coralid.clustering import embedding_table  # noqa: E402
 from coralid.config import CropConfig  # noqa: E402
 from coralid.crops import bbox_crop  # noqa: E402
 from coralid.masks import AnnotationStore  # noqa: E402
 from coralid.viz import (  # noqa: E402
-    category_palette,
     confusion_heatmap,
     crop_gallery_pdf,
     cut_crops,
-    embedding_scatter,
     funnel_chart,
     mask_overlay,
 )
@@ -49,6 +46,19 @@ def _pages(path):
     return len(re.findall(rb"/Type\s*/Page(?![a-z])", path.read_bytes()))
 
 
+def _keyed(uids, **columns):
+    """A table keyed by `(image_name, coral_id)`, the way the plots and galleries take it."""
+    table = pd.DataFrame(
+        {
+            "image_name": [u.rpartition("#")[0] for u in uids],
+            "coral_id": [int(u.rpartition("#")[2]) for u in uids],
+        }
+    )
+    for name, values in columns.items():
+        table[name] = list(values)
+    return table
+
+
 def _table(n_per_cluster=(2, 14)):
     names = ["A.JPG", "B.JPG"]
     uids, clusters = [], []
@@ -56,7 +66,7 @@ def _table(n_per_cluster=(2, 14)):
         for i in range(n):
             uids.append(f"{names[i % 2]}#{i % 2}")
             clusters.append(cluster)
-    return embedding_table(uids, cluster=clusters)
+    return _keyed(uids, cluster=clusters)
 
 
 # ------------------------------------------------------------------------- crops
@@ -96,7 +106,7 @@ def test_gallery_starts_a_new_page_for_each_group(store_and_images, tmp_path):
 
 def test_gallery_survives_missing_photos_and_uses_caption_column(store_and_images, tmp_path):
     store, images = store_and_images
-    table = embedding_table(["A.JPG#0", "Z.JPG#0", "B.JPG#99"], genus=["Acropora"] * 3)
+    table = _keyed(["A.JPG#0", "Z.JPG#0", "B.JPG#99"], genus=["Acropora"] * 3)
     table["caption"] = ["a", "b", "c"]
     path = crop_gallery_pdf(
         table, tmp_path / "g.pdf", store, images, group_col="genus", caption_col="caption"
@@ -138,22 +148,6 @@ def test_mask_overlay_draws_the_masks_of_the_table(store_and_images):
     assert only_one.axes[0].get_images()[1].get_array()[120, 150, 3] == 0  # the smaller one is out
 
 
-def test_embedding_scatter_draws_the_table_columns():
-    table = embedding_table(
-        [f"I.JPG#{i}" for i in range(5)],
-        x=[0, 1, 2, 3, 4.0],
-        y=[4, 3, 2, 1, 0.0],
-        c=[0, 0, 1, 1, 2],
-    )
-    fig = embedding_scatter(table, color="c", title="map")
-    ax = fig.axes[0]
-    np.testing.assert_array_equal(ax.collections[0].get_offsets(), table[["x", "y"]].to_numpy())
-    np.testing.assert_array_equal(ax.collections[0].get_array(), [0, 0, 1, 1, 2])
-    assert ax.get_title() == "map" and ax.get_xlabel() == "x"
-    again = embedding_scatter(table, ax=ax)
-    assert again is fig  # drawn into the panel it was given
-
-
 def test_confusion_heatmap_shows_counts_or_row_shares():
     confusion = pd.DataFrame(
         [[3, 1], [0, 0]], index=pd.Index(["A", "B"], name="true"), columns=["A", "B"]
@@ -164,40 +158,6 @@ def test_confusion_heatmap_shows_counts_or_row_shares():
     assert [t.get_text() for t in ax.texts] == ["3", "1"]
     shares = confusion_heatmap(confusion, normalize=True).axes[0].get_images()[0].get_array()
     np.testing.assert_allclose(shares, [[0.75, 0.25], [0, 0]])  # an empty row stays 0
-
-
-def test_a_category_column_is_drawn_per_category_with_a_legend_that_counts():
-    genus = ["Porites", "Acropora", "Porites", "Pavona", "Porites"]
-    table = embedding_table(
-        [f"I.JPG#{i}" for i in range(5)], x=[0, 1, 2, 3, 4.0], y=[4, 3, 2, 1, 0.0], genus=genus
-    )
-    fig = embedding_scatter(table, color="genus")
-    ax = fig.axes[0]
-    assert [c.get_label() for c in ax.collections] == [
-        "Acropora (1)",
-        "Pavona (1)",
-        "Porites (3)",
-    ]
-    porites = ax.collections[2]
-    np.testing.assert_array_equal(porites.get_offsets(), [[0, 4], [2, 2], [4, 0]])
-    assert ax.get_legend().get_title().get_text() == "genus"
-
-
-def test_a_shared_palette_keeps_a_genus_the_same_color_in_every_panel():
-    palette = category_palette(["Porites", "Acropora", "Pavona"])
-    assert list(palette) == ["Acropora", "Pavona", "Porites"]
-    subset = embedding_table(["I.JPG#0", "I.JPG#1"], x=[0, 1.0], y=[0, 1.0], g=["Porites", "Zzz"])
-    ax = embedding_scatter(subset, color="g", palette=palette).axes[0]
-    drawn = {c.get_label()[:-4]: c.get_facecolor()[0] for c in ax.collections}
-    np.testing.assert_allclose(drawn["Porites"][:3], palette["Porites"][:3])
-    np.testing.assert_allclose(drawn["Zzz"][:3], [0.827, 0.827, 0.827], atol=0.01)  # not in it
-
-
-def test_cluster_numbers_sort_as_numbers_and_noise_last():
-    palette = category_palette(["10", "2", "noise", "-1", "1"])
-    assert list(palette) == ["-1", "1", "2", "10", "noise"]
-    many = category_palette([str(i) for i in range(30)])
-    assert len(set(many.values())) == 30  # beyond 20 categories the colors are still distinct
 
 
 def test_the_funnel_chart_has_the_stages_and_the_orientation_shares():
@@ -236,13 +196,3 @@ def test_the_funnel_chart_has_the_stages_and_the_orientation_shares():
     assert [t.get_text() for t in right.get_yticklabels()] == ["area", "aspect", "blurry"]
     widths = [round(p.get_width(), 1) for p in right.patches]
     assert widths == [33.3, 16.7, 0.0, 25.0, 0.0, 25.0]  # landscape x3, then portrait x3
-
-
-def test_a_number_column_gets_a_color_bar_and_a_panel_can_leave_it_out():
-    table = embedding_table(
-        [f"I.JPG#{i}" for i in range(3)], x=[0, 1, 2.0], y=[2, 1, 0.0], confidence=[0.2, 0.5, 0.9]
-    )
-    assert len(embedding_scatter(table, color="confidence").axes) == 2  # the map and its bar
-    assert len(embedding_scatter(table, color="confidence", legend=False).axes) == 1
-    named = table.assign(genus=["A", "B", "B"])
-    assert embedding_scatter(named, color="genus", legend=False).axes[0].get_legend() is None

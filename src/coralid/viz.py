@@ -1,15 +1,15 @@
 """Plots. Each function takes a table (plus an `AnnotationStore` for pictures) and only draws.
 
-Nothing here computes: rows to show are chosen by the caller (`coralid.clustering` has the
-samplers and the projections) and arrive in a table keyed by `image_name` and `coral_id`.
+Nothing here computes: rows to show are chosen by the caller and arrive in a table keyed by
+`image_name` and `coral_id`.
 
 - `crop_grid_pdf`: a PDF of crop grids with one caption each (the review sheets' format);
-- `crop_gallery_pdf`: the same, with the rows grouped by a column, one section per group (the
-  K-Means cluster gallery of CM cell 14, a genus gallery);
+- `crop_gallery_pdf`: the same, with the rows grouped by a column, one section per group (a
+  genus gallery, a cluster gallery);
 - `mask_overlay`: a photo with its masks drawn, optionally colored by a column (CM cell 8);
-- `embedding_scatter`, `category_palette`, `confusion_heatmap` and `funnel_chart`: the plots that
-  need no photo (a 2-D map colored by a number or a category, a confusion matrix, the filter
-  funnel). They live in `coralid.viz_plots` and are importable from here too.
+- `confusion_heatmap` and `funnel_chart`: the plots that need no photo (a confusion matrix, the
+  filter funnel). They live in `coralid.viz_plots` and are importable from here too. (The 2-D
+  maps of the exploration direction are in `coralid.explore.plots`.)
 
 Crops are always cut from the photo loaded in the mask frame. matplotlib is imported inside the
 functions, so `import coralid` stays light.
@@ -31,16 +31,14 @@ from coralid.config import CropConfig
 from coralid.crops import bbox_crop, masked_crop, masked_square_crop
 from coralid.images import ImageReadError, load_in_mask_frame
 from coralid.masks import AnnotationStore, decode_rle
-from coralid.viz_plots import category_palette, confusion_heatmap, embedding_scatter, funnel_chart
+from coralid.viz_plots import confusion_heatmap, funnel_chart
 
 __all__ = [
     "CROP_VIEWS",
-    "category_palette",
     "confusion_heatmap",
     "crop_gallery_pdf",
     "crop_grid_pdf",
     "cut_crops",
-    "embedding_scatter",
     "funnel_chart",
     "mask_overlay",
 ]
@@ -185,10 +183,10 @@ def crop_gallery_pdf(
     """Write a PDF of crops with one section per value of `group_col` (all in one if None).
 
     `table` needs `image_name` and `coral_id`. It is drawn in row order and the groups appear in
-    the order of their first row, so the caller chooses and orders what is shown
-    (`coralid.clustering.sample_per_group` draws the rows of a cluster gallery). The caption is
-    `caption_col` if given, else the key `IMG_4033.JPG#14`. Each section starts on a new page and
-    is titled with its group value. An existing file is an error unless `overwrite`.
+    the order of their first row, so the caller chooses and orders what is shown (for example
+    `coralid.explore.clustering.sample_per_group` draws the rows of a cluster gallery). The
+    caption is `caption_col` if given, else the key `IMG_4033.JPG#14`. Each section starts on a
+    new page and is titled with its group value. An existing file is an error unless `overwrite`.
     """
     from matplotlib.backends.backend_pdf import PdfPages
 

@@ -33,7 +33,7 @@ from coralid._atomic import atomic_write_text
 from coralid.batch import ResumableRun
 from coralid.config import Config, write_meta
 from coralid.crops import masked_square_crop
-from coralid.encoders import DINO_MODELS, ImageEncoder, load_dino_encoder
+from coralid.explore.dino import DINO_MODELS, ImageEncoder, load_dino_encoder
 from coralid.images import load_in_mask_frame
 from coralid.manifest import read_manifest
 from coralid.masks import json_name_for, load_mask_json

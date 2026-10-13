@@ -10,8 +10,7 @@ pytest.importorskip("matplotlib")
 from matplotlib.figure import Figure  # noqa: E402
 
 from coralid.baseline import baseline_paths  # noqa: E402
-from coralid.clustering import embedding_table  # noqa: E402
-from coralid.explore import (  # noqa: E402
+from coralid.explore.analysis import (  # noqa: E402
     cluster_genus_table,
     explore_summary,
     features_path,
@@ -19,6 +18,7 @@ from coralid.explore import (  # noqa: E402
     load_exploration,
     write_explore_report,
 )
+from coralid.explore.clustering import embedding_table  # noqa: E402
 from coralid.zero_shot import save_embeddings  # noqa: E402
 from tests.run_data import make_run  # noqa: E402
 
@@ -104,7 +104,7 @@ def test_without_a_manifest_there_is_no_orientation(cfg):
 
 
 def test_a_missing_features_file_says_which_job_makes_it(cfg):
-    with pytest.raises(FileNotFoundError, match="03_zero_shot"):
+    with pytest.raises(FileNotFoundError, match="02_zero_shot"):
         load_exploration(cfg, "dinov2-s14__masked_square")
 
 

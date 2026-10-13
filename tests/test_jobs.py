@@ -3,8 +3,7 @@ import json
 import pandas as pd
 import pytest
 
-from coralid.baseline import run_baseline
-from coralid.embed import embed_paths, run_embeddings
+from coralid.baseline import baseline_paths, run_baseline
 from coralid.jobs import (
     JobError,
     ManifestIncomplete,
@@ -14,6 +13,7 @@ from coralid.jobs import (
     train_probe,
 )
 from coralid.probe import ProbeError
+from coralid.zero_shot import load_embeddings, save_embeddings
 from tests.fake_encoder import FakeEncoder
 from tests.run_data import labels_for, make_run, write_expert_inputs
 
@@ -151,10 +151,11 @@ def test_train_probe_reports_held_out_accuracy_and_saves_a_new_folder(baseline_r
     assert train_probe(cfg, name="unit", date="2026-10-12")[2].name == "probe_unit_2026-10-12_2"
 
 
-def test_train_probe_can_use_the_dino_features(baseline_run):
+def test_train_probe_can_use_any_features_file_of_the_run(baseline_run):
     cfg = baseline_run
-    run_embeddings(cfg, "dinov2-s14", encoder=FakeEncoder(dim=8))
-    cfg.probe.features = embed_paths(cfg, "dinov2-s14").name
+    uids, X = load_embeddings(baseline_paths(cfg).features)
+    save_embeddings(cfg.features_dir / "other__masked_square.npz", uids, X[:, ::-1].copy())
+    cfg.probe.features = "other__masked_square"
     cfg.probe.n_splits = 3
     report, _, _ = train_probe(cfg, labels_for(cfg, ["Acropora", "Porites"]), date="2026-10-12")
     assert report.params["standardize"] is True and report.n_labeled == 6

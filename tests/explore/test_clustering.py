@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from coralid.clustering import (
+from coralid.explore.clustering import (
     analyze_kmeans,
     cluster_sizes,
     drop_first_component,
@@ -258,7 +258,7 @@ def test_cluster_sizes_and_sampling_per_group():
 
 def test_pca_keeps_all_it_has_when_the_features_are_smaller_than_asked():
     pytest.importorskip("sklearn")
-    from coralid.clustering import drop_first_component, pca_reduce
+    from coralid.explore.clustering import drop_first_component, pca_reduce
 
     X = np.random.RandomState(0).randn(40, 24)  # 24 dimensions, 50 components asked for
     result = pca_reduce(X, 50)

@@ -10,7 +10,7 @@ from coralid import cli
 from coralid.baseline import baseline_paths, run_baseline
 from coralid.cli import COMMANDS, build_parser, main
 from coralid.config import Config, Paths, save_config
-from coralid.embed import EmbedIncomplete, embed_paths
+from coralid.explore.embed import EmbedIncomplete, embed_paths
 from coralid.segmentation import SegmentationResult
 from tests.fake_encoder import FakeEncoder
 from tests.run_data import labels_for, make_run, write_expert_inputs
@@ -168,7 +168,7 @@ def test_embed_passes_the_model_and_the_batch_size(args, monkeypatch, capsys):
 
     def fake(cfg, model, **kwargs):
         seen.update(model=model, batch_size=cfg.embed.batch_size, **kwargs)
-        from coralid.embed import EmbedPaths, EmbedResult
+        from coralid.explore.embed import EmbedPaths, EmbedResult
 
         paths = EmbedPaths("x", cfg.features_dir / "x.npz", cfg.features_dir / "parts")
         return EmbedResult(["A#0"], np.zeros((1, 4), np.float32), paths, "computed")
@@ -272,7 +272,7 @@ def test_build_manifest_command(cfg, args, capsys):
 
 def test_embed_command(cfg, args, monkeypatch, capsys):
     _with_manifest(cfg)
-    from coralid import embed
+    from coralid.explore import embed
 
     monkeypatch.setattr(embed, "load_dino_encoder", lambda name: FakeEncoder(dim=8))
     assert main(["embed", *args]) == 0

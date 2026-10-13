@@ -1,10 +1,10 @@
 """Dimensionality reduction and clustering of embeddings, with the settings of the legacy notebook.
 
 These are the computations of CoralMasking.ipynb cells 12-15 and 19-22 (PCA, t-SNE, UMAP,
-K-Means with its quality scores, HDBSCAN), kept apart from the plots (`coralid.viz`): nothing here
-draws, and nothing in `viz` computes. They work on a matrix `X` of embeddings (for example the `X`
-of a `features/*.npz` file) and return arrays or small result objects; `embedding_table` turns
-those into a table keyed by `(image_name, coral_id)` that the `viz` functions take.
+K-Means with its quality scores, HDBSCAN), kept apart from the plots (`coralid.explore.plots`):
+nothing here draws, and nothing in the plots computes. They work on a matrix `X` of embeddings
+(for example the `X` of a `features/*.npz` file) and return arrays or small result objects;
+`embedding_table` turns those into a table keyed by `(image_name, coral_id)` that the plots take.
 
 Settings reproduced from the notebook (all with `random_state=42`):
 

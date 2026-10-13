@@ -32,7 +32,7 @@ from collections.abc import Callable, Sequence
 from coralid import __version__
 from coralid.baseline import BaselineError, BaselineIncomplete, run_baseline
 from coralid.config import Config, ConfigError, load_config
-from coralid.embed import EmbedError, EmbedIncomplete, run_embeddings
+from coralid.explore.embed import EmbedError, EmbedIncomplete, run_embeddings
 from coralid.jobs import (
     JobError,
     ManifestIncomplete,

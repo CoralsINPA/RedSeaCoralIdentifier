@@ -1,7 +1,8 @@
 """Exploring stored embeddings: join them to the baseline, summarize clusters, save the results.
 
-The computations are in `coralid.clustering` (PCA, t-SNE, UMAP, K-Means, HDBSCAN) and the plots in
-`coralid.viz`; this module is the glue the exploration notebook (`02_embeddings_explore`) needs:
+The computations are in `coralid.explore.clustering` (PCA, t-SNE, UMAP, K-Means, HDBSCAN) and the
+plots in `coralid.explore.plots`; this module is the glue the exploration notebook
+(`notebooks/explore/embeddings.ipynb`) needs:
 
 - `load_exploration` reads a features file of the run (`features/<name>.npz`, for example the
   baseline's `finetuned-bioclip__masked` or the DINO job's `dinov2-s14__masked_square`) and joins
@@ -26,13 +27,13 @@ import numpy as np
 import pandas as pd
 
 from coralid.baseline import baseline_paths
-from coralid.clustering import (
+from coralid.config import Config
+from coralid.explore.clustering import (
     HdbscanResult,
     KMeansAnalysis,
     PcaResult,
     embedding_table,
 )
-from coralid.config import Config
 from coralid.manifest import read_manifest
 from coralid.orientation import add_orientation
 from coralid.predictions import normalize_keys
@@ -83,9 +84,9 @@ def load_exploration(
     path = features_path(cfg, features)
     if not path.exists():
         raise FileNotFoundError(
-            f"{path} not found. The baseline's features come from notebooks/03_zero_shot.ipynb "
+            f"{path} not found. The baseline's features come from notebooks/02_zero_shot.ipynb "
             "(finetuned-bioclip__masked); DINO features from the embedding job "
-            "(python -m coralid embed)."
+            "(python -m coralid explore-embed)."
         )
     uids, X = load_embeddings(path)
     table = embedding_table(uids)

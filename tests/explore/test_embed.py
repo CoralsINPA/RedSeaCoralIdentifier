@@ -6,7 +6,7 @@ import pytest
 from PIL import Image
 
 from coralid.crops import masked_square_crop
-from coralid.embed import (
+from coralid.explore.embed import (
     EmbedError,
     EmbedIncomplete,
     embed_paths,
