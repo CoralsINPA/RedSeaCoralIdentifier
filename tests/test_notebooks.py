@@ -1,4 +1,7 @@
-"""The five Colab notebooks of the plan are thin drivers; these tests hold them to that.
+"""The Colab notebooks are thin drivers; these tests hold them to that.
+
+There are four pipeline notebooks (`01` to `04`) and one exploration notebook
+(`notebooks/explore/embeddings.ipynb`, outside the pipeline).
 
 They check the files as text (nothing is executed): valid nbformat, outputs stripped, under 15
 cells, no function definitions, every code cell compiles, every `coralid` name a notebook imports
@@ -20,11 +23,12 @@ ROOT = Path(__file__).resolve().parents[1]
 BRANCH = "claude/awesome-archimedes-kvh4c7"
 EXTRAS = {
     "01_segment_and_filter": "segment,viz",
-    "02_embeddings_explore": "dino,cluster,viz",
-    "03_zero_shot": "clip,viz",
-    "04_expert_review_and_audits": "viz",
-    "05_supervised_probe": "probe,viz",
+    "02_zero_shot": "clip,viz",
+    "03_expert_review": "viz",
+    "04_supervised_probe": "probe,viz",
+    "explore/embeddings": "dino,cluster,viz",
 }
+PIPELINE = [name for name in EXTRAS if not name.startswith("explore/")]
 
 
 def load(name):
@@ -107,14 +111,14 @@ def first_lines(source, n=14):
 def test_cells_that_can_change_data_default_to_doing_nothing():
     cells = {name: "\n\n".join(code_cells(load(name))) for name in EXTRAS}
     assert "SEGMENT_MISSING = False" in cells["01_segment_and_filter"]
-    assert "RUN_EMBED = False" in cells["02_embeddings_explore"]
-    assert "RUN_EXPORT = False" in cells["04_expert_review_and_audits"]
+    assert "RUN_EMBED = False" in cells["explore/embeddings"]
+    assert "RUN_EXPORT = False" in cells["03_expert_review"]
     # the on-hold blind review is gated, and the gate comes before the export itself
-    gated = cells["04_expert_review_and_audits"]
+    gated = cells["03_expert_review"]
     assert gated.index("RUN_EXPORT = False") < gated.index("write_blind_review(")
     assert "if RUN_EXPORT:" in gated
-    # 02 explores the BioCLIP features by default, and the setting is at the top of the config cell
-    config = next(s for s in code_cells(load("02_embeddings_explore")) if "FEATURES =" in s)
+    # the exploration notebook explores the BioCLIP features by default, and the setting is at the top of the config cell
+    config = next(s for s in code_cells(load("explore/embeddings")) if "FEATURES =" in s)
     assert 'FEATURES = "finetuned-bioclip__masked"' in first_lines(config)
 
 
@@ -127,13 +131,36 @@ def test_notebook_01_checks_the_segmentation_in_a_scratch_run():
     assert "if plan.todo and SEGMENT_MISSING:" in text
 
 
-def test_notebook_05_never_builds_labels_from_predictions():
-    text = "\n".join(code_cells(load("05_supervised_probe")))
+def test_notebook_04_never_builds_labels_from_predictions():
+    text = "\n".join(code_cells(load("04_supervised_probe")))
     assert "expert_labels(" in text and "landscape" in text
     assert "predicted_genus" not in text
     markdown = "".join(
         "".join(c["source"])
-        for c in load("05_supervised_probe")["cells"]
+        for c in load("04_supervised_probe")["cells"]
         if c["cell_type"] == "markdown"
     )
     assert "too little to mean anything" in markdown and "idea 1.1" in markdown
+
+
+def test_the_numbered_notebooks_are_the_pipeline_and_nothing_else():
+    numbered = sorted(p.stem for p in (ROOT / "notebooks").glob("[0-9][0-9]_*.ipynb"))
+    assert (
+        numbered
+        == sorted(PIPELINE)
+        == [
+            "01_segment_and_filter",
+            "02_zero_shot",
+            "03_expert_review",
+            "04_supervised_probe",
+        ]
+    )
+
+
+def test_no_pipeline_notebook_uses_the_exploration_subpackage_and_the_other_way_round():
+    for name in PIPELINE:
+        for source in code_cells(load(name)):
+            assert "coralid.explore" not in source, f"{name} uses coralid.explore"
+    nb = load("explore/embeddings")
+    assert "not a step of the pipeline" in "".join(nb["cells"][0]["source"])
+    assert any("coralid.explore" in source for source in code_cells(nb))

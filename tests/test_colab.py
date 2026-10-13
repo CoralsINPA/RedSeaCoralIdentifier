@@ -443,9 +443,9 @@ def test_the_bootstrap_needs_only_the_standard_library_to_import_colab():
 
 
 def test_the_defaults_match_the_notebooks_setup_cell():
-    notebook = Path(coralid.__file__).resolve().parents[2] / "notebooks" / "03_zero_shot.ipynb"
+    notebook = Path(coralid.__file__).resolve().parents[2] / "notebooks" / "02_zero_shot.ipynb"
     if not notebook.exists():
-        pytest.skip("notebook 03 is not in this checkout")
+        pytest.skip("notebook 02 is not in this checkout")
     text = notebook.read_text()
     for value in (
         colab.DEFAULT_DATA_ROOT,
