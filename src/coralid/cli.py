@@ -9,14 +9,15 @@ alone, and the long jobs resume where they stopped.
   for the photos that have none, and a log in `segmentation/`.
 - `build-manifest`: reads the mask JSONs and photos; creates `manifest/manifest.parquet` (and its
   `.meta.json`), with progress in `manifest/parts/`.
-- `embed`: reads the manifest, JSONs and photos (a GPU); creates
-  `features/<model>__masked_square.npz`.
 - `zero-shot`: reads the manifest, JSONs and photos (a GPU); creates the baseline's `predictions/`
   and `features/` files.
 - `evaluate`: reads the baseline, the manifest and the expert set; creates a folder in `reports/`.
 - `export-review`: reads the baseline and the manifest; creates `reviews/exports/` (to hand out)
   and `reviews/keys/` (private).
 - `train-probe`: reads a features file and a labels table; creates a folder in `reports/`.
+- `explore-embed` (exploration, not part of the pipeline): reads the manifest, JSONs and photos
+  (a GPU); creates `features/<model>__masked_square.npz`. It imports `coralid.explore` only when
+  it runs.
 
 Exit code: 0 when done, 2 when the command could not finish (the message says why; for the
 resumable jobs, run the same command again).
@@ -32,7 +33,6 @@ from collections.abc import Callable, Sequence
 from coralid import __version__
 from coralid.baseline import BaselineError, BaselineIncomplete, run_baseline
 from coralid.config import Config, ConfigError, load_config
-from coralid.explore.embed import EmbedError, EmbedIncomplete, run_embeddings
 from coralid.jobs import (
     JobError,
     ManifestIncomplete,
@@ -50,10 +50,9 @@ from coralid.segmentation import (
     run_segmentation,
 )
 
-_INCOMPLETE = (BaselineIncomplete, EmbedIncomplete, ManifestIncomplete)
+_INCOMPLETE = (BaselineIncomplete, ManifestIncomplete)
 _STOPPED = (
     BaselineError,
-    EmbedError,
     SegmentationError,
     JobError,
     ProbeError,
@@ -123,18 +122,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="no photos: area, aspect and containment only, to manifest/manifest_geometric.parquet",
     )
 
-    emb = _command(
-        commands,
-        "embed",
-        "DINO embeddings of the masked square crop of every kept mask",
-        "Embed every keep == True row of the manifest with DINOv2 ViT-S/14 or DinoVdeau-large and "
-        "write features/<model>__masked_square.npz (uids and raw float32 features) with a "
-        ".meta.json. Resumable (features/parts/), written only when every photo is done, never "
-        "over an existing file. CLIP-family features come from zero-shot.",
-    )
-    emb.add_argument("--model", help="dinov2-s14 or dinovdeau-l (default: embed.model)")
-    emb.add_argument("--batch-size", type=int, help="override the model's own batch size")
-
     _command(
         commands,
         "zero-shot",
@@ -192,6 +179,20 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--no-standardize", action="store_true", help="skip feature scaling")
     pr.add_argument("--no-zero-shot", action="store_true", help="skip the zero-shot comparison")
     pr.add_argument("--name", help="report name (default: the features stem)")
+
+    emb = _command(
+        commands,
+        "explore-embed",
+        "EXPLORATION, not part of the pipeline: DINO embeddings of every kept mask",
+        "EXPLORATION, not part of the pipeline (nothing else needs its output). Embed every "
+        "keep == True row of the manifest with DINOv2 ViT-S/14 or DinoVdeau-large and write "
+        "features/<model>__masked_square.npz (uids and raw float32 features) with a .meta.json. "
+        "Resumable (features/parts/), written only when every photo is done, never over an "
+        "existing file. The pipeline's own embeddings come from zero-shot. Needs the "
+        "'dino' extra and a GPU.",
+    )
+    emb.add_argument("--model", help="dinov2-s14 or dinovdeau-l (default: explore.model)")
+    emb.add_argument("--batch-size", type=int, help="override the model's own batch size")
     return parser
 
 
@@ -250,11 +251,20 @@ def _build_manifest(args: argparse.Namespace) -> int:
     return 0
 
 
-def _embed(args: argparse.Namespace) -> int:
+def _explore_embed(args: argparse.Namespace) -> int:
+    from coralid.explore.embed import EmbedError, EmbedIncomplete, run_embeddings
+
     cfg = _config(args)
     if args.batch_size:
-        cfg.embed.batch_size = args.batch_size
-    result = run_embeddings(cfg, args.model, progress=not args.quiet)
+        cfg.explore.batch_size = args.batch_size
+    try:
+        result = run_embeddings(cfg, args.model, progress=not args.quiet)
+    except EmbedIncomplete as err:
+        print(f"INCOMPLETE: {err}", file=sys.stderr)
+        return 2
+    except EmbedError as err:
+        print(f"STOPPED: {err}", file=sys.stderr)
+        return 2
     verb = "Loaded the saved features" if result.status == "already_done" else "Wrote"
     print(f"{verb}: {len(result.uids)} crops, {result.features.shape[1]} dimensions")
     print(f"  features: {result.paths.features}")
@@ -326,7 +336,7 @@ def _train_probe(args: argparse.Namespace) -> int:
 COMMANDS: dict[str, Callable[[argparse.Namespace], int]] = {
     "segment": _segment,
     "build-manifest": _build_manifest,
-    "embed": _embed,
+    "explore-embed": _explore_embed,
     "zero-shot": _zero_shot,
     "evaluate": _evaluate,
     "export-review": _export_review,

@@ -166,10 +166,10 @@ def test_write_meta_handles_numpy_values(tmp_path):
 
 
 def test_the_stage_c_settings_default_to_the_documented_values(monkeypatch, tmp_path):
-    from coralid.config import EmbedConfig, ProbeConfig
+    from coralid.config import ExploreConfig, ProbeConfig
 
     assert SamConfig().save_features is False  # CoralSCOP's extra outputs are opt-in
-    assert EmbedConfig() == EmbedConfig(model="dinov2-s14", batch_size=None)
+    assert ExploreConfig() == ExploreConfig(model="dinov2-s14", batch_size=None)
     probe = ProbeConfig()
     assert (probe.n_splits, probe.class_weight, probe.label_set) == (5, "balanced", "hard20")
     assert probe.labels is None and probe.features == "finetuned-bioclip__masked"
@@ -187,7 +187,7 @@ def test_a_config_written_before_stage_c_still_loads(tmp_path):
     old.write_text(yaml.safe_dump({"zero_shot": {"model": "bioclip2"}, "sam": {"max_side": 2560}}))
     cfg = load_config(old)
     assert cfg.zero_shot.model == "bioclip2"
-    assert cfg.embed.model == "dinov2-s14" and cfg.sam.save_features is False
+    assert cfg.explore.model == "dinov2-s14" and cfg.sam.save_features is False
 
 
 def test_a_run_prefix_names_a_scratch_run_and_changes_nothing_else(monkeypatch, tmp_path):
@@ -213,3 +213,14 @@ def test_a_config_without_a_run_prefix_still_loads(tmp_path):
     old = tmp_path / "old.yaml"
     old.write_text(yaml.safe_dump({"paths": {"images_dir": "data_50"}}))
     assert load_config(old).paths.run_prefix == ""
+
+
+def test_the_embed_section_was_renamed_explore_and_the_old_name_says_so(tmp_path):
+    shipped = load_config(
+        Path(__file__).resolve().parents[1] / "configs" / "iou60_sta55_pts32.yaml"
+    )
+    assert shipped.explore.model == "dinov2-s14"
+    old = tmp_path / "old.yaml"
+    old.write_text(yaml.safe_dump({"embed": {"model": "dinov2-s14"}}))
+    with pytest.raises(ConfigError, match="renamed 'explore'"):
+        load_config(old)

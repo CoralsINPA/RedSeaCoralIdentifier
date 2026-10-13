@@ -44,7 +44,9 @@ zero_shot:
   prompt_set: taxonomy_v1
   batch_size: 64
   logit_scale: 100.0
-embed:
+# Exploration direction (embeddings and clustering): NOT part of the pipeline. Nothing in the
+# pipeline reads this section; only `python -m coralid explore-embed` does.
+explore:
   model: dinov2-s14  # or dinovdeau-l; the batch size is the model's own unless set here
   batch_size: null
 probe:

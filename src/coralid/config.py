@@ -153,8 +153,8 @@ class ZeroShotConfig:
 
 
 @dataclass
-class EmbedConfig:
-    """Embedding job settings (CM cells 9 and 11): which DINO model."""
+class ExploreConfig:
+    """Settings of the exploration direction, not of the pipeline: which DINO model embeds."""
 
     model: str = "dinov2-s14"  # or "dinovdeau-l"
     batch_size: int | None = None  # None: the model's own (DINOv2 64, DinoVdeau 16)
@@ -182,7 +182,7 @@ _SECTIONS: dict[str, type] = {
     "filters": FilterConfig,
     "crops": CropConfig,
     "zero_shot": ZeroShotConfig,
-    "embed": EmbedConfig,
+    "explore": ExploreConfig,
     "probe": ProbeConfig,
 }
 
@@ -207,7 +207,7 @@ class Config:
     filters: FilterConfig = field(default_factory=FilterConfig)
     crops: CropConfig = field(default_factory=CropConfig)
     zero_shot: ZeroShotConfig = field(default_factory=ZeroShotConfig)
-    embed: EmbedConfig = field(default_factory=EmbedConfig)
+    explore: ExploreConfig = field(default_factory=ExploreConfig)
     probe: ProbeConfig = field(default_factory=ProbeConfig)
 
     @property
@@ -291,6 +291,11 @@ class Config:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Config:
         """Build a config from nested dicts, rejecting unknown sections and keys."""
+        if "embed" in data:
+            raise ConfigError(
+                "The config section 'embed' was renamed 'explore' (embeddings and clustering are "
+                "an exploration direction, not part of the pipeline)."
+            )
         unknown = set(data) - set(_SECTIONS)
         if unknown:
             raise ConfigError(f"Unknown config sections: {sorted(unknown)}")

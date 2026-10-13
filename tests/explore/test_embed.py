@@ -65,11 +65,11 @@ def test_features_are_the_square_crops_encoded_and_saved_with_meta(cfg):
     assert meta["kind"] == "image_features" and meta["n_rows"] == 6 and meta["dim"] == 8
     assert meta["model"] == MODEL and meta["crop_mode"] == "masked_square"
     assert meta["normalized"] == "none" and meta["n_manifest_keep"] == 6
-    assert meta["config"]["embed"]["model"] == "dinov2-s14" and "git_commit" in meta
+    assert meta["config"]["explore"]["model"] == "dinov2-s14" and "git_commit" in meta
 
 
 def test_the_batch_size_comes_from_the_config(cfg):
-    cfg.embed.batch_size = 4
+    cfg.explore.batch_size = 4
     encoder = FakeEncoder()
     run_embeddings(cfg, MODEL, encoder=encoder)
     assert encoder.image_batch_sizes == [4, 2]

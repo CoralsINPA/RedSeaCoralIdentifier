@@ -10,6 +10,7 @@ from coralid import cli
 from coralid.baseline import baseline_paths, run_baseline
 from coralid.cli import COMMANDS, build_parser, main
 from coralid.config import Config, Paths, save_config
+from coralid.explore import embed as embed_module
 from coralid.explore.embed import EmbedIncomplete, embed_paths
 from coralid.segmentation import SegmentationResult
 from tests.fake_encoder import FakeEncoder
@@ -18,11 +19,11 @@ from tests.run_data import labels_for, make_run, write_expert_inputs
 COMMAND_NAMES = [
     "segment",
     "build-manifest",
-    "embed",
     "zero-shot",
     "evaluate",
     "export-review",
     "train-probe",
+    "explore-embed",
 ]
 
 
@@ -87,7 +88,9 @@ def test_options_of_each_command_parse():
     )
     assert p.parse_args(["segment", "--config", "c", "--dry-run", "--save-features"]).dry_run
     assert p.parse_args(["build-manifest", "--config", "c", "--geometric"]).geometric
-    e = p.parse_args(["embed", "--config", "c", "--model", "dinovdeau-l", "--batch-size", "8"])
+    e = p.parse_args(
+        ["explore-embed", "--config", "c", "--model", "dinovdeau-l", "--batch-size", "8"]
+    )
     assert (e.model, e.batch_size) == ("dinovdeau-l", 8)
     r = p.parse_args(["export-review", "--config", "c", "--genus", "Porites", "--no-pdf"])
     assert (r.genus, r.n_pred, r.n_other, r.n_assaf, r.seed, r.no_pdf) == (
@@ -163,18 +166,18 @@ def test_segment_exits_2_and_names_the_failed_photos(args, monkeypatch, capsys):
     assert "INCOMPLETE" in capsys.readouterr().err
 
 
-def test_embed_passes_the_model_and_the_batch_size(args, monkeypatch, capsys):
+def test_explore_embed_passes_the_model_and_the_batch_size(args, monkeypatch, capsys):
     seen = {}
 
     def fake(cfg, model, **kwargs):
-        seen.update(model=model, batch_size=cfg.embed.batch_size, **kwargs)
+        seen.update(model=model, batch_size=cfg.explore.batch_size, **kwargs)
         from coralid.explore.embed import EmbedPaths, EmbedResult
 
         paths = EmbedPaths("x", cfg.features_dir / "x.npz", cfg.features_dir / "parts")
         return EmbedResult(["A#0"], np.zeros((1, 4), np.float32), paths, "computed")
 
-    monkeypatch.setattr(cli, "run_embeddings", fake)
-    assert main(["embed", *args, "--model", "dinovdeau-l", "--batch-size", "8"]) == 0
+    monkeypatch.setattr(embed_module, "run_embeddings", fake)
+    assert main(["explore-embed", *args, "--model", "dinovdeau-l", "--batch-size", "8"]) == 0
     assert seen == {"model": "dinovdeau-l", "batch_size": 8, "progress": False}
     assert "Wrote: 1 crops, 4 dimensions" in capsys.readouterr().out
 
@@ -183,8 +186,8 @@ def test_an_incomplete_job_is_exit_code_2_with_the_reason(args, monkeypatch, cap
     def incomplete(cfg, model, **kwargs):
         raise EmbedIncomplete([{"image": "IMG_1.JPG", "error": "boom"}])
 
-    monkeypatch.setattr(cli, "run_embeddings", incomplete)
-    assert main(["embed", *args]) == 2
+    monkeypatch.setattr(embed_module, "run_embeddings", incomplete)
+    assert main(["explore-embed", *args]) == 2
     assert "INCOMPLETE" in capsys.readouterr().err
 
 
@@ -270,17 +273,15 @@ def test_build_manifest_command(cfg, args, capsys):
     assert "manifest_geometric.parquet" in capsys.readouterr().out
 
 
-def test_embed_command(cfg, args, monkeypatch, capsys):
+def test_explore_embed_command(cfg, args, monkeypatch, capsys):
     _with_manifest(cfg)
-    from coralid.explore import embed
-
-    monkeypatch.setattr(embed, "load_dino_encoder", lambda name: FakeEncoder(dim=8))
-    assert main(["embed", *args]) == 0
+    monkeypatch.setattr(embed_module, "load_dino_encoder", lambda name: FakeEncoder(dim=8))
+    assert main(["explore-embed", *args]) == 0
     assert "Wrote: 6 crops, 8 dimensions" in capsys.readouterr().out
     assert embed_paths(cfg).features.exists()
-    assert main(["embed", *args]) == 0
+    assert main(["explore-embed", *args]) == 0
     assert "Loaded the saved features" in capsys.readouterr().out
-    assert main(["embed", *args, "--model", "finetuned-bioclip"]) == 2
+    assert main(["explore-embed", *args, "--model", "finetuned-bioclip"]) == 2
     assert "zero-shot" in capsys.readouterr().err
 
 

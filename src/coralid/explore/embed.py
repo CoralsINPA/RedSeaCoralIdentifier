@@ -82,7 +82,7 @@ class EmbedResult:
 
 def embed_paths(cfg: Config, model: str | None = None) -> EmbedPaths:
     """File locations of a model: `features/dinov2-s14__masked_square.npz`."""
-    name = f"{model or cfg.embed.model}__{CROP_MODE}"
+    name = f"{model or cfg.explore.model}__{CROP_MODE}"
     return EmbedPaths(name, cfg.features_dir / f"{name}.npz", cfg.features_dir / "parts")
 
 
@@ -153,10 +153,10 @@ def run_embeddings(
     Resumes from `features/parts/`. If the result exists it is loaded and nothing is recomputed
     or overwritten. Raises `EmbedIncomplete` (and writes nothing) if any image failed.
     `encoder` is for tests; by default the configured DINO model is loaded. `group_size` is how
-    many images are cut and encoded together; the batch size is `cfg.embed.batch_size` or the
+    many images are cut and encoded together; the batch size is `cfg.explore.batch_size` or the
     model's own (DINOv2 64, DinoVdeau 16).
     """
-    model = model or cfg.embed.model
+    model = model or cfg.explore.model
     if encoder is None and model not in DINO_MODELS:
         raise EmbedError(
             f"'{model}' is not a DINO model ({sorted(DINO_MODELS)}). The features of the "
@@ -178,7 +178,7 @@ def run_embeddings(
     text = json.dumps({"uids": sorted(expected), "model": model, "crop": CROP_MODE})
     _record_inputs(paths, hashlib.sha256(text.encode()).hexdigest()[:16], len(kept), run)
     encoder = encoder or load_dino_encoder(model)
-    batch_size = cfg.embed.batch_size or getattr(encoder, "batch_size", 64)
+    batch_size = cfg.explore.batch_size or getattr(encoder, "batch_size", 64)
 
     by_image = {name: rows for name, rows in kept.groupby("image_name", sort=False)}
     todo = run.pending(list(by_image))

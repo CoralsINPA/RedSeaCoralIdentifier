@@ -30,6 +30,8 @@ clip = [
     "open_clip_torch>=3.3,<4",
     "transformers>=4.50",
 ]
+# Exploration extras (dino, cluster): for coralid.explore only. The pipeline and the probe never
+# need them.
 dino = [
     "torch",
     "torchvision",
