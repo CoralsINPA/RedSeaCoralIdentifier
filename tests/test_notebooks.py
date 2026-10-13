@@ -117,7 +117,7 @@ def test_cells_that_can_change_data_default_to_doing_nothing():
     gated = cells["03_expert_review"]
     assert gated.index("RUN_EXPORT = False") < gated.index("write_blind_review(")
     assert "if RUN_EXPORT:" in gated
-    # the exploration notebook explores the BioCLIP features by default, and the setting is at the top of the config cell
+    # the exploration notebook uses the BioCLIP features by default (setting at the top of the cell)
     config = next(s for s in code_cells(load("explore/embeddings")) if "FEATURES =" in s)
     assert 'FEATURES = "finetuned-bioclip__masked"' in first_lines(config)
 
