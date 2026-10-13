@@ -339,8 +339,8 @@ def test_the_default_manifest_is_unchanged_by_the_option(image_setup):
     assert _records(default) == _records(explicit)
 
 
-def test_bbox_sharpness_is_the_millepora_audits_definition(image_setup):
-    """MA cell 5: Laplacian variance of the unmasked, unpadded box in the mask frame."""
+def test_bbox_sharpness_is_the_laplacian_variance_of_the_plain_box(image_setup):
+    """The alternative measure: the unmasked, unpadded box in the mask frame."""
     json_dir, images, crops = image_setup
     bbox_filters = FilterConfig(**{**FILTERS.__dict__, "sharpness_crop": "bbox"})
     df = image_manifest(json_dir, images, bbox_filters, crops)

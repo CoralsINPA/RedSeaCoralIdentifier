@@ -2,8 +2,8 @@
 
 These helpers are re-exported by `coralid.evaluation`.
 
-- `load_legacy_predictions` reads the old `coral_weak_labels_*.csv` files, the V2 CSVs and the
-  predictions stored in `assaf_expert_test_set.csv`.
+- `load_legacy_predictions` reads the old `coral_weak_labels_*.csv` files and the predictions
+  stored in `assaf_expert_test_set.csv`.
 - `compare_predictions` is the parity check: same keys, same top-1, close probabilities.
 - `distribution_vs_ground_truth` sets the predicted genus mix beside the survey counts.
 """
@@ -49,14 +49,14 @@ def _uid(df: pd.DataFrame) -> pd.Series:
 def load_legacy_predictions(path: str | os.PathLike[str]) -> pd.DataFrame:
     """Read a legacy predictions CSV into the canonical table.
 
-    Works for `coral_weak_labels_*.csv`, the V2 CSVs and `assaf_expert_test_set.csv`. The genus
-    columns are the columns that are known genera (file order is kept). `coral_id` becomes an
-    int and `bbox` a list of floats, parsed without `eval`. Other columns are dropped.
+    Works for `coral_weak_labels_*.csv` and `assaf_expert_test_set.csv`. The genus columns are the
+    columns named after a genus of a label set (file order is kept). `coral_id` becomes an int and
+    `bbox` a list of floats, parsed without `eval`. Other columns are dropped.
     Columns: `image_name, coral_id, [bbox, area], <genera>, predicted_genus, confidence` and
     `runner_up` when the file has it.
     """
     raw = normalize_keys(pd.read_csv(path))
-    known = set(load_genera().known_genera())
+    known = set(load_genera().label_set_genera())
     genus_cols = [c for c in raw.columns if c in known]
     if not genus_cols:
         raise ValueError(f"{path}: no genus probability columns found")
@@ -138,7 +138,7 @@ def compare_predictions(
     for name, df in (("a", a), ("b", b)):
         if df.duplicated(KEY).any():
             raise ValueError(f"table {name} has duplicate (image_name, coral_id) keys")
-    known = set(load_genera().known_genera())
+    known = set(load_genera().label_set_genera())
     genus_cols = [c for c in a.columns if c in known and c in b.columns]
     if not genus_cols:
         raise ValueError("the tables share no genus probability columns")

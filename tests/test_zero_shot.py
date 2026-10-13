@@ -1,4 +1,5 @@
 import math
+from dataclasses import replace
 
 import cv2
 import numpy as np
@@ -9,7 +10,7 @@ from PIL import Image
 from coralid.batch import ResumableRun
 from coralid.config import CropConfig, FilterConfig
 from coralid.crops import masked_crop
-from coralid.genera import load_genera
+from coralid.genera import PromptSet, load_genera
 from coralid.images import load_in_mask_frame
 from coralid.manifest import image_manifest
 from coralid.masks import load_mask_json
@@ -134,10 +135,18 @@ def test_taxonomy_text_features_are_the_normalized_prompt_embeddings():
     np.testing.assert_allclose(feats, l2_normalize(enc.encode_texts(enc.text_calls[0])), atol=1e-6)
 
 
-def test_taxonomy_v2_changes_the_prompts():
+def test_another_taxonomy_prompt_set_changes_the_prompts():
+    base = load_genera()
+    variant = PromptSet(
+        "taxonomy_test", "taxonomy", "a test", dict(base.prompt_set("taxonomy_v1").prompts)
+    )
+    variant.prompts["Favites"] = "Animalia Cnidaria Anthozoa Scleractinia Merulinidae Favites"
+    config = replace(base, prompt_sets={**base.prompt_sets, "taxonomy_test": variant})
     enc = FakeEncoder()
-    build_text_features(enc, "hard20", "taxonomy", "taxonomy_v2")
+    build_text_features(enc, "hard20", "taxonomy", "taxonomy_test", config)
     assert "Merulinidae Favites" in enc.text_calls[0][HARD20.index("Favites")]
+    build_text_features(enc, "hard20", "taxonomy", "taxonomy_v1", config)
+    assert "Faviidae Favites" in enc.text_calls[1][HARD20.index("Favites")]
 
 
 def test_ensemble_is_the_renormalized_mean_of_the_normalized_components():

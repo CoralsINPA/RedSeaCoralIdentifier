@@ -29,7 +29,7 @@ filters:
   containment_thresh: 0.8
   max_aspect_ratio: 3.0
   sharpness_threshold: 80.0
-  sharpness_crop: masked  # masked: the pipeline's measure (threshold 80); bbox: the audit's (150)
+  sharpness_crop: masked  # masked: the pipeline's measure (threshold 80); bbox: the unmasked box (150)
   sharpness_threshold_bbox: 150.0
 crops:
   mode: masked

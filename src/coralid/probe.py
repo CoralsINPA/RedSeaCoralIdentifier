@@ -1,8 +1,8 @@
-"""A linear probe on stored embeddings: V2 Phase 2, redone so that its numbers can be trusted.
+"""A linear probe on stored embeddings, with numbers that can be trusted.
 
-A logistic regression on a features file (`uids` + `X`, from `coralid.baseline` or
-`coralid.embed`), trained on labels that someone gives it. What V2 Phase 2 got wrong, and what
-is different here (see `docs/algorithm_ideas.md`, idea 4):
+A logistic regression on a features file (`uids` + `X`: the baseline's BioCLIP embeddings,
+`features/<model>__masked.npz`, or any file of the same shape), trained on labels that someone
+gives it. What makes its numbers trustworthy (see `docs/algorithm_ideas.md`, idea 4):
 
 - **Keys.** Labels join to features on `(image_name, coral_id)`, written `IMG_4033.JPG#14`,
   never on `coral_id` alone (it restarts at 0 in every photo).
@@ -12,8 +12,8 @@ is different here (see `docs/algorithm_ideas.md`, idea 4):
 - **Class weights** (`balanced` by default), because the genera are very unevenly common.
 - **Labels are an input.** This module never makes labels: no blank cell counts as "confirmed",
   and zero-shot predictions are not turned into training labels. A genus whose precision is
-  unknown or low (Millepora, 58.9% on a non-expert's check) must not teach the probe its own
-  mistakes. Give it expert labels.
+  unknown (Millepora has no valid figure yet) must not teach the probe its own mistakes. Give
+  it expert labels.
 
 The report reuses `coralid.evaluation`: accuracy with a Wilson interval, per-genus precision and
 recall, the confusion matrix and the top confusions. scikit-learn is imported inside the

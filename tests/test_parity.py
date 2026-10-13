@@ -29,7 +29,7 @@ from coralid.parity_expert import (
     EXPERT_CSV_EXPECTED,
     check_expert_confusion,
 )
-from coralid.parity_manifest import check_image_manifest, compare_kept_with_v2, load_v2_keys
+from coralid.parity_manifest import check_image_manifest
 from coralid.parity_report import (
     format_summary,
     format_table,
@@ -267,86 +267,30 @@ def _image_manifest(n_land=30, n_port=10, port_kept=4, land_kept=20):
     return pd.DataFrame(rows)
 
 
-def _v2_keys(manifest, drop=None, add=None, portrait_extra=0):
-    """V2's keys: the kept landscape keys (optionally changed) and some portrait keys."""
-    kept = manifest[manifest["keep"]]
-    land = kept[kept["frame_w"] > kept["frame_h"]][["image_name", "coral_id"]]
-    if drop is not None:
-        land = land.drop(index=land.index[drop])
-    keys = [tuple(r) for r in land.to_numpy()]
-    keys += [tuple(r) for r in (add or [])]
-    keys += [("P0.JPG", 100 + i) for i in range(portrait_extra)]
-    return pd.DataFrame(keys, columns=["image_name", "coral_id"])
+def test_image_manifest_check_is_about_completeness_and_reports_the_rest():
+    rows = _by_name(check_image_manifest(_image_manifest(), expected={**EXPECTED, "n_masks": 40}))
+    assert [rows[k].status for k in ("C1", "C2")] == [PASS, PASS]
+    assert rows["C3"].status == INFO and rows["C3"].actual == {"kept": 4}
+    assert rows["C4"].actual == 24 and rows["C4"].expected == 16080 and rows["C4"].status == INFO
+    assert rows["C5"].actual["portrait"] == {"kept": 4, "area": 5, "image_missing": 1}
+    assert rows["C6"].actual == 2  # one photo per orientation has an image_missing mask
+    assert sorted(rows) == ["C1", "C2", "C3", "C4", "C5", "C6"]  # no comparison with other runs
+    assert all(r.status in (PASS, INFO) for r in rows.values())
 
 
-def test_image_manifest_check_compares_landscape_keys_with_v2():
+def test_image_manifest_check_fails_on_a_missing_mask_or_an_unresolved_failure():
     manifest = _image_manifest()
-    rows = _by_name(
-        check_image_manifest(
-            manifest,
-            v2_keys=_v2_keys(manifest, portrait_extra=3),
-            expected={**EXPECTED, "n_masks": 40},
-        )
+    short = _by_name(check_image_manifest(manifest, expected={**EXPECTED, "n_masks": 41}))
+    assert short["C1"].status == FAIL and short["C1"].actual == 40 and short["C1"].expected == 41
+    incomplete = _by_name(
+        check_image_manifest(manifest, [{"image": "X"}], expected={**EXPECTED, "n_masks": 40})
     )
-    assert [rows[k].status for k in ("C1", "C2", "C3")] == [PASS, PASS, PASS]
-    assert (
-        rows["C4"].status == INFO
-        and rows["C4"].actual["kept"] == 4
-        and rows["C4"].actual["v2"] == 3
-    )
-    assert rows["C5"].actual == 24 and rows["C5"].expected == 16080 and rows["C5"].status == INFO
-    assert rows["C6"].actual["portrait"] == {"kept": 4, "area": 5, "image_missing": 1}
-    assert rows["C7"].actual == 2  # one photo per orientation has an image_missing mask
+    assert incomplete["C1"].status == PASS and incomplete["C2"].status == FAIL
 
 
-def test_image_manifest_check_fails_on_a_landscape_key_that_differs():
-    manifest = _image_manifest()
-    expected = {**EXPECTED, "n_masks": 40}
-    fewer = _by_name(
-        check_image_manifest(manifest, v2_keys=_v2_keys(manifest, drop=[0, 1]), expected=expected)
-    )
-    assert (
-        fewer["C3"].status == FAIL and fewer["C3"].actual == [2, 0]  # two kept keys V2 lacks
-    )
-    more = _by_name(
-        check_image_manifest(
-            manifest, v2_keys=_v2_keys(manifest, add=[("L0.JPG", 99)]), expected=expected
-        )
-    )
-    assert more["C3"].status == FAIL and more["C3"].actual == [0, 1]
-    assert "L0.JPG#99" in more["C3"].detail
-    incomplete = _by_name(check_image_manifest(manifest, [{"image": "X"}], expected=EXPECTED))
-    assert incomplete["C1"].status == FAIL and incomplete["C2"].status == FAIL
-
-
-def test_image_manifest_check_without_the_v2_file_is_partial():
+def test_check_c_has_no_rows_that_need_a_file_so_it_is_never_partial():
     rows = check_image_manifest(_image_manifest(), expected={**EXPECTED, "n_masks": 40})
-    by = _by_name(rows)
-    assert by["C3"].status == NOT_RUN and by["C4"].actual == {"kept": 4}
-    assert summarize(rows)["checks"]["C"]["status"] == "PARTIAL"
-
-
-def test_compare_kept_with_v2_counts_each_orientation(tmp_path):
-    manifest = _image_manifest()
-    v2 = _v2_keys(manifest, drop=[0], add=[("L1.JPG", 77)], portrait_extra=2)
-    out = compare_kept_with_v2(manifest, v2)
-    land = out["landscape"]
-    assert (land["images"], land["kept"], land["v2"], land["both"]) == (2, 20, 20, 19)
-    assert (land["only_new"], land["only_v2"]) == (1, 1) and land["only_v2_sample"] == ["L1.JPG#77"]
-    assert (
-        out["portrait"]["images"] == 2
-        and out["portrait"]["v2"] == 2
-        and out["portrait"]["both"] == 0
-    )
-    stray = compare_kept_with_v2(
-        manifest, pd.concat([v2, pd.DataFrame({"image_name": ["Z.JPG"], "coral_id": [1]})])
-    )
-    assert stray["unknown_images"] == {"v2_rows": 1}
-    path = tmp_path / "v2.csv"
-    pd.DataFrame({"image_name": ["A.JPG"], "coral_id": ["3.0"], "bbox": ["[1, 2, 3, 4]"]}).to_csv(
-        path, index=False
-    )
-    assert load_v2_keys(path).to_dict("records") == [{"image_name": "A.JPG", "coral_id": 3}]
+    assert summarize(rows)["checks"]["C"]["status"] == "PASS"
 
 
 # ----------------------------------------------------------------------------- D

@@ -1,12 +1,14 @@
 import hashlib
 import json
 import logging
+from dataclasses import replace
 
 import pytest
 
 from coralid.genera import (
     PROMPT_FORMATS,
     GeneraError,
+    PromptSet,
     build_prompts,
     default_genera_path,
     load_genera,
@@ -37,14 +39,12 @@ HARD20 = [
 ]
 
 # SHA-256 of json.dumps(list(prompts.items())) for each prompt set, computed once from the
-# dicts in the legacy notebooks (weak_classification.ipynb cell 14, V2 cell 9). They pin the
+# dicts in the legacy notebooks (weak_classification.ipynb cell 14). They pin the
 # YAML copy: any edit to a prompt, a genus key or the order changes the digest.
 LEGACY_DIGESTS = {
     "taxonomy_v1": "1241ba257c9948b21a14d68b760767e40b466a05bc0eae4bc6c72341887e951a",
     "descriptive": "2ac0ea3ca7cb42f41ba5b8a15bb767c063239f36ba260afed9f53c3a5d831450",
     "common": "d678e7a93091d2861be882bd5f3b91ad5e62bb1b1cf8147737e7489149835410",
-    "taxonomy_v2": "f98889d735942519d94290072a5a9b28cb9769aeed5e35077dacd5a24ec2d418",
-    "soft4_taxonomy": "1580bef038298b3401b9551e1643c706996b399a6c9383e5dec4e8b0bec8a33d",
     "hybrid": "fe52b225ee07096bacb2bf26729e6617c41fba95e5085104c4d445677ddae4c7",
 }
 
@@ -66,10 +66,12 @@ def test_hard20_has_the_exact_legacy_order(cfg):
 
 
 def test_soft_corals_are_known_but_not_a_label_set(cfg):
-    assert cfg.soft_genera == ("Cladiella", "Sinularia", "Litophyton", "Sarcophyton")
+    # the soft corals of the expert test set (Cladiella 3 crops, Litophyton 1, Sinularia 1)
+    assert cfg.soft_genera == ("Cladiella", "Sinularia", "Litophyton")
+    assert cfg.label_set_genera() == HARD20
     assert cfg.known_genera() == HARD20 + list(cfg.soft_genera)
-    with pytest.raises(GeneraError, match="Unknown label set 'soft4'"):
-        cfg.genera("soft4")
+    with pytest.raises(GeneraError, match="Unknown label set 'soft_corals'"):
+        cfg.genera("soft_corals")
 
 
 @pytest.mark.parametrize("name", sorted(LEGACY_DIGESTS))
@@ -83,29 +85,15 @@ def test_prompt_set_sizes_and_kinds(cfg):
         "taxonomy_v1": 20,
         "descriptive": 20,
         "common": 20,
-        "taxonomy_v2": 20,
-        "soft4_taxonomy": 4,
         "hybrid": 10,
     }
     assert {n: p.kind for n, p in cfg.prompt_sets.items()} == {
         "taxonomy_v1": "taxonomy",
         "descriptive": "descriptive",
         "common": "common",
-        "taxonomy_v2": "taxonomy",
-        "soft4_taxonomy": "taxonomy",
         "hybrid": "hybrid",
     }
     assert [n for n, p in cfg.prompt_sets.items() if p.incomplete] == ["hybrid"]
-
-
-def test_the_two_taxonomy_variants_differ_where_the_legacy_ones_did(cfg):
-    """WC files Favites under Faviidae, V2 under Merulinidae (plan section 2.1 #6)."""
-    v1 = cfg.prompt_set("taxonomy_v1").prompts
-    v2 = cfg.prompt_set("taxonomy_v2").prompts
-    assert v1["Favites"].endswith("Faviidae Favites")
-    assert v2["Favites"].endswith("Merulinidae Favites")
-    assert v2["Leptastrea"].endswith("Incertae Leptastrea")
-    assert v1["Acropora"] == v2["Acropora"]
 
 
 def test_hybrid_with_hard20_raises_a_clear_error():
@@ -125,9 +113,18 @@ def test_build_prompts_follow_label_set_order(cfg):
     assert common[1] == "staghorn coral Acropora"
 
 
+def _with_a_second_taxonomy(cfg):
+    """The shipped config plus a made-up taxonomy variant, to test choosing between two."""
+    variant = PromptSet("taxonomy_test", "taxonomy", "a test", {g: f"Animalia {g}" for g in HARD20})
+    return replace(cfg, prompt_sets={**cfg.prompt_sets, "taxonomy_test": variant})
+
+
 def test_taxonomy_prompt_set_can_be_chosen(cfg):
-    (v2,) = build_prompts("hard20", "taxonomy", prompt_set="taxonomy_v2")
-    assert v2 == [cfg.prompt_set("taxonomy_v2").prompts[g] for g in HARD20]
+    two = _with_a_second_taxonomy(cfg)
+    (chosen,) = build_prompts("hard20", "taxonomy", prompt_set="taxonomy_test", config=two)
+    assert chosen == [f"Animalia {g}" for g in HARD20]
+    (default,) = build_prompts("hard20", "taxonomy", config=two)
+    assert default == [cfg.prompt_set("taxonomy_v1").prompts[g] for g in HARD20]
     with pytest.raises(GeneraError, match="needs a taxonomy set"):
         build_prompts("hard20", "taxonomy", prompt_set="descriptive")
     with pytest.raises(GeneraError, match="needs a taxonomy set"):
@@ -135,14 +132,15 @@ def test_taxonomy_prompt_set_can_be_chosen(cfg):
 
 
 def test_other_formats_ignore_the_taxonomy_prompt_set(cfg):
-    assert build_prompts("hard20", "descriptive", prompt_set="taxonomy_v2") == build_prompts(
-        "hard20", "descriptive"
-    )
+    two = _with_a_second_taxonomy(cfg)
+    assert build_prompts(
+        "hard20", "descriptive", prompt_set="taxonomy_test", config=two
+    ) == build_prompts("hard20", "descriptive")
 
 
 def test_prompt_set_names_per_format_and_family():
     assert prompt_set_names("taxonomy") == ["taxonomy_v1"]
-    assert prompt_set_names("taxonomy", "taxonomy_v2") == ["taxonomy_v2"]
+    assert prompt_set_names("taxonomy", "taxonomy_test") == ["taxonomy_test"]
     assert prompt_set_names("descriptive") == ["descriptive"]
     assert prompt_set_names("common") == ["common"]
     assert prompt_set_names("hybrid") == ["hybrid"]

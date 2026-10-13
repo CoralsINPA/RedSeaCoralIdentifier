@@ -4,7 +4,7 @@ Expert labels are normalized to a *status*:
 
 - `in_set`: a genus of the label set (counts towards the headline accuracy);
 - `out_of_set`: a genus the model cannot predict (soft corals such as Cladiella, Sinularia,
-  Litophyton, Sarcophyton). Counted as wrong in `accuracy_in_plus_out`, never in `accuracy_in_set`;
+  Litophyton). Counted as wrong in `accuracy_in_plus_out`, never in `accuracy_in_set`;
 - `unidentifiable`: the expert could not name the genus (`unidentifiable`, `?`);
 - `missing`: no label (`MISSING_LABEL`, blank).
 

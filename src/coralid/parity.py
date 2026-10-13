@@ -37,7 +37,7 @@ EXPECTED = {
     "files_without_survivors": 4,
     "mean_survivors_per_file": 9.4,
     "frame_sizes": {"2560x1920": 1493, "1920x2560": 221},  # landscape, portrait (2026-10-11)
-    "kept_recorded": 16080,  # Check C on 2026-10-11 (the legacy V2 count was 14,224)
+    "kept_recorded": 16080,  # Check C on 2026-10-11 (the legacy count was 14,224)
     "sample_masks": 2337,
     "sample_after_filter": 1054,
     "sample_crops": 842,

@@ -89,12 +89,12 @@ class SamConfig:
 
 @dataclass
 class FilterConfig:
-    """Mask quality filters (WC cell 8, V2 cell 4).
+    """Mask quality filters (`weak_classification.ipynb` cell 8).
 
     Sharpness is the Laplacian variance of a crop, and *which* crop is a choice:
     - `masked` (the pipeline's definition, the default): the masked crop on a black background,
       kept if it reaches `sharpness_threshold` (80).
-    - `bbox` (the Millepora audit's definition, MA cells 5 and 9): the unmasked box of the mask,
+    - `bbox` (an alternative measure, not used by the active run): the unmasked box of the mask,
       without padding, kept if it reaches `sharpness_threshold_bbox` (150).
     The default is unchanged; switching it is an algorithm decision, not a refactoring one.
     """
@@ -162,7 +162,7 @@ class ExploreConfig:
 
 @dataclass
 class ProbeConfig:
-    """Linear-probe settings (V2 Phase 2, redone: grouped cross-validation, held-out report)."""
+    """Linear-probe settings: grouped cross-validation, held-out report only."""
 
     features: str = "finetuned-bioclip__masked"  # stem of the file in <run>/features/
     labels: str | None = None  # labels table (CSV or parquet), relative to the data root

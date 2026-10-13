@@ -18,7 +18,7 @@ PARTIAL = "PARTIAL"
 CHECKS = {
     "A": "geometric filters on all mask JSONs",
     "B": "zero-shot parity with the legacy code on the 50-image sample (landscape photos)",
-    "C": "image manifest on all images (landscape photos against V2)",
+    "C": "image manifest on all images (completeness)",
     "D": "predictions stored in the expert set against its expert labels",
 }
 

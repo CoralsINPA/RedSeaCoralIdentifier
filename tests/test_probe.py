@@ -147,7 +147,9 @@ def test_the_report_is_held_out_not_training_accuracy():
     X = rng.randn(*X.shape).astype(np.float32)  # noise: the features say nothing about the genus
     data = join_labels(uids, X, labels, "genus", "hard20")
     training = fit_probe(data, C=100.0)
-    assert (training.predict(data.X) == data.y).mean() > 0.95  # what V2 would have reported
+    assert (
+        training.predict(data.X) == data.y
+    ).mean() > 0.95  # the training accuracy, which is never reported
     report = cross_validate_probe(data, n_splits=5, C=100.0)
     assert report.accuracy["accuracy"] < 0.6  # chance is 1/3
     assert report.accuracy["total"] == len(data)

@@ -5,7 +5,7 @@ prediction table and decides argmax ties. A *prompt set* is one text prompt per 
 character for character from a legacy notebook. A *prompt format* says how prompt sets turn
 into text features:
 
-- `taxonomy`: one taxonomy prompt set (`taxonomy_v1` by default, or `taxonomy_v2`);
+- `taxonomy`: one taxonomy prompt set (`taxonomy_v1` by default; a new variant is a new named set);
 - `descriptive`, `common`, `hybrid`: the prompt set of that name;
 - `ensemble`: the mean of the L2-normalized taxonomy, descriptive and common embeddings,
   renormalized.
@@ -86,11 +86,16 @@ class GeneraConfig:
                 f"Unknown prompt set '{name}'; available: {sorted(self.prompt_sets)}"
             ) from None
 
-    def known_genera(self) -> list[str]:
-        """Every genus the project knows: all label sets, then the soft corals (no repeats)."""
+    def label_set_genera(self) -> list[str]:
+        """Every genus of any label set: the genera a model can predict (no repeats)."""
         seen: dict[str, None] = {}
         for genera in self.label_sets.values():
             seen.update(dict.fromkeys(genera))
+        return list(seen)
+
+    def known_genera(self) -> list[str]:
+        """Every genus the project knows: all label sets, then the soft corals (no repeats)."""
+        seen = dict.fromkeys(self.label_set_genera())
         seen.update(dict.fromkeys(self.soft_genera))
         return list(seen)
 
@@ -173,7 +178,7 @@ def build_prompts(
         if kind != KIND_TAXONOMY:
             raise GeneraError(
                 f"Prompt set '{prompt_set}' is a {kind} set, but format '{prompt_format}' needs "
-                "a taxonomy set (taxonomy_v1 or taxonomy_v2)."
+                "a taxonomy set (such as taxonomy_v1)."
             )
     return [config.prompt_set(name).prompts_for(genera, label_set) for name in names]
 

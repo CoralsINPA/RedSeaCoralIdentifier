@@ -49,7 +49,7 @@ def test_the_source_is_read_from_the_baseline_through_baseline_paths(cfg):
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"label_set": "soft4"}, "label_set is 'soft4', it must be 'hard20'"),
+        ({"label_set": "soft_corals"}, "label_set is 'soft_corals', it must be 'hard20'"),
         ({"label_set": None}, "label_set is None"),
         ({"model": "bioclip2"}, "model is 'bioclip2', it must be 'finetuned-bioclip'"),
         ({"prompt_set": "ensemble_taxonomy_v1"}, "prompt_set is .ensemble_taxonomy_v1."),

@@ -107,7 +107,7 @@ def image_rows(
     A mask removed by the geometric filters keeps that reason. The others are judged on the
     masked crop: visible pixels, then sharpness. By default sharpness is the pipeline's own
     (the masked crop on a black background, Laplacian variance at least 80); with
-    `filters.sharpness_crop == "bbox"` it is the audit's (the unmasked box, at least 150). If the
+    `filters.sharpness_crop == "bbox"` it is the unmasked box (at least 150). If the
     photo is missing or unreadable they get `image_missing`.
     """
     rows = geometric_rows(mask_file, filters)
@@ -152,7 +152,7 @@ def _sharpness(
     """Laplacian variance of the crop that `filters.sharpness_crop` names."""
     if filters.sharpness_crop == "masked":
         return laplacian_variance(masked)
-    box = bbox_crop(img, bbox, padding_pct=0.0)  # the Millepora audit cut the plain box
+    box = bbox_crop(img, bbox, padding_pct=0.0)  # the plain box, without padding
     return 0.0 if box is None else laplacian_variance(box)
 
 

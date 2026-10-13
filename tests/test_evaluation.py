@@ -405,7 +405,7 @@ def test_load_legacy_predictions_reads_bboxes_without_eval(tmp_path):
             "bbox": ["[10.5, 20.0, 300.0, 400.25]", "[ 10  20 300.5 400]"],  # list / numpy style
             "area": [111, 222],
             **cols,
-            "Cladiella": [0.0, 0.0],  # V2 soft-coral column: a known genus, so it is kept
+            "Cladiella": [0.0, 0.0],  # not a genus the model predicts: not a probability column
             "predicted_genus": ["Porites", "Porites"],
             "confidence": [0.9, 0.9],
             "runner_up": ["Acropora", "Acropora"],
@@ -420,7 +420,6 @@ def test_load_legacy_predictions_reads_bboxes_without_eval(tmp_path):
         "area",
         "Acropora",
         "Porites",
-        "Cladiella",
         "predicted_genus",
         "confidence",
         "runner_up",

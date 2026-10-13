@@ -1,6 +1,6 @@
 """Mask quality filters with the legacy semantics, but containment computed on the RLE.
 
-`filter_annotations` reproduces the notebooks' filter (WC cell 8, V2 cell 6) exactly,
+`filter_annotations` reproduces the legacy filter (`weak_classification.ipynb` cell 8) exactly,
 quirks included:
 
 1. keep `area >= min_area`;
@@ -137,8 +137,8 @@ def laplacian_variance(crop_rgb: np.ndarray) -> float:
     """Variance of the Laplacian of the grayscale crop: the sharpness measure.
 
     Which crop it is measured on is a setting (`FilterConfig.sharpness_crop`): the pipeline
-    measures the masked crop on a black background (threshold 80), the Millepora audit measured
-    the unmasked box (threshold 150).
+    measures the masked crop on a black background (threshold 80); the alternative is the
+    unmasked box (threshold 150).
 
     Caution: on a masked crop this also responds to the artificial edge between the coral and
     the plain background, so a flat but sharply outlined mask can pass. With correct crops the

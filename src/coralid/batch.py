@@ -1,6 +1,6 @@
 """A resumable per-image runner: done-set, numbered part files, a failure log and a merge step.
 
-The pattern of V2 cell 10 (the best checkpointing in the legacy code), keyed by image:
+Progress is saved as it goes and a run can be resumed, keyed by image:
 
 - `add(image, rows, embeddings)` buffers one image's result. Every `flush_every` images the
   buffer is written as a numbered part (`<name>.part_0003.parquet`, plus `.npz` with `uids`
