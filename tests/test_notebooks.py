@@ -164,3 +164,15 @@ def test_no_pipeline_notebook_uses_the_exploration_subpackage_and_the_other_way_
     nb = load("explore/embeddings")
     assert "not a step of the pipeline" in "".join(nb["cells"][0]["source"])
     assert any("coralid.explore" in source for source in code_cells(nb))
+
+
+def test_notebook_03_prints_the_source_before_it_exports_and_scoring_checks_it():
+    cells = code_cells(load("03_expert_review"))
+    export = next(s for s in cells if "RUN_EXPORT = False" in s)
+    assert export.index("baseline_source(cfg)") < export.index("print(")
+    assert export.index("print(") < export.index("build_blind_review(")
+    assert "source=source" in export and ".lines()" in export
+    scoring = next(s for s in cells if "score_blind_review(" in s)
+    assert "current_source=current" in scoring and "baseline_source(cfg)" in scoring
+    text = "\n".join(cells)
+    assert "audit" not in text.replace("genus_audit", "")  # the old audit is gone

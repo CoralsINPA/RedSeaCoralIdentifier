@@ -1,15 +1,12 @@
 """The portrait-impact report: which reviewed crops sit on portrait photos, and what changed.
 
 The legacy code mis-cut every crop on the 221 portrait photos (1920x2560 frames). The expert set
-and the Millepora audit were judged on legacy crops, so for portrait photos the judgment may
-describe a different-looking crop than the one `coralid` now cuts. This module lists those rows:
+was judged on legacy crops, so for portrait photos the expert's label may describe a
+different-looking crop than the one `coralid` now cuts. `expert_portrait_impact` lists those
+rows: every row of the expert set on a portrait photo, with the label and status, the legacy
+prediction stored in the file and the new prediction.
 
-- `expert_portrait_impact`: every row of the expert set on a portrait photo, with the label and
-  status, the legacy prediction stored in the file and the new prediction;
-- `audit_portrait_impact`: the same for the 129 rows of the Millepora audit. Judgments on portrait
-  photos must not be reused for the new crops; the rows are flagged `needs_rereview`.
-
-Both take the manifest (it knows each photo's frame) and the new predictions (the baseline).
+It takes the manifest (it knows each photo's frame) and the new predictions (the baseline).
 """
 
 from __future__ import annotations
@@ -22,15 +19,14 @@ from typing import Any
 
 import pandas as pd
 
-from coralid.evaluation import IN_SET, OUT_OF_SET, STATUSES, UNIDENTIFIABLE, wilson_interval
-from coralid.labeling import NO, UNSURE, YES
+from coralid.evaluation import IN_SET, OUT_OF_SET, STATUSES, UNIDENTIFIABLE
 from coralid.orientation import LANDSCAPE, PORTRAIT, add_orientation, image_orientations
 from coralid.predictions import normalize_keys
 
 CAUTION = (
-    "The expert (or the analyst) judged crops cut by the legacy code. On portrait photos those "
-    "were cut from the wrong region, so the label may describe a different-looking crop than the "
-    "one coralid cuts now."
+    "The expert judged crops cut by the legacy code. On portrait photos those were cut from the "
+    "wrong region, so the label may describe a different-looking crop than the one coralid cuts "
+    "now."
 )
 
 
@@ -142,58 +138,6 @@ def _expert_summary(
     }
 
 
-# --------------------------------------------------------------------------- Millepora audit
-
-
-def audit_portrait_impact(
-    audit: pd.DataFrame,
-    new_predictions: pd.DataFrame,
-    manifest: pd.DataFrame,
-    genus: str = "Millepora",
-) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """The legacy audit rows with their orientation, the new prediction and a re-review flag.
-
-    `audit` is the legacy audit as read by `genus_audit.load_legacy_audit` (it has `key`,
-    `image_name`, `coral_id`, `answer`, `actual_genus`). Rows on portrait photos get
-    `needs_rereview=True`: their judgment was made on a mis-cut crop and must not be reused.
-    Returns `(rows, summary)`; `rows` holds every audit row, in the audit's order.
-    """
-    rows = normalize_keys(audit)
-    new = _prediction_columns(new_predictions, "new")
-    rows = rows.merge(new, on=["image_name", "coral_id"], how="left")
-    rows = add_orientation(rows, manifest)
-    rows["in_new_baseline"] = rows["new_pred"].notna()
-    rows["new_is_target"] = pd.Series(
-        (rows["new_pred"] == genus).where(rows["in_new_baseline"]), dtype=object
-    )
-    rows["needs_rereview"] = rows["orientation"] == PORTRAIT
-    rows["judgment_reusable"] = (rows["orientation"] == LANDSCAPE) & rows["answer"].isin([YES, NO])
-
-    def by_judgment(part: pd.DataFrame) -> dict[str, int]:
-        return {a: int((part["answer"] == a).sum()) for a in (YES, NO, UNSURE)} | {
-            "pending": int(part["answer"].isna().sum())
-        }
-
-    portrait = rows[rows["orientation"] == PORTRAIT]
-    landscape = rows[rows["orientation"] == LANDSCAPE]
-    yes, no = (landscape["answer"] == YES).sum(), (landscape["answer"] == NO).sum()
-    summary = {
-        "genus": genus,
-        "n_audit_rows": len(rows),
-        "rows_by_orientation": _counts(rows["orientation"]),
-        "all_judgments": by_judgment(rows),
-        "portrait_judgments": by_judgment(portrait),
-        "landscape_judgments": by_judgment(landscape),
-        "portrait_rows_needing_rereview": len(portrait),
-        "portrait_in_new_baseline": int(portrait["in_new_baseline"].sum()),
-        "reusable_judgments": int(rows["judgment_reusable"].sum()),
-        "landscape_share_yes_of_decided": int(yes) / int(yes + no) if yes + no else None,
-        "landscape_share_yes_ci95": wilson_interval(int(yes), int(yes + no)),
-        "caution": CAUTION,
-    }
-    return rows, summary
-
-
 # --------------------------------------------------------------------------- saving
 
 
@@ -201,14 +145,12 @@ def write_portrait_report(
     expert_rows: pd.DataFrame,
     expert_summary: dict[str, Any],
     reports_dir: str | os.PathLike[str],
-    audit_rows: pd.DataFrame | None = None,
-    audit_summary: dict[str, Any] | None = None,
     date: str | None = None,
 ) -> Path:
     """Write the report as new files in a new folder `<reports_dir>/portrait_impact_<date>/`.
 
-    Files: `summary.json`, `expert_portrait_rows.csv` and, with an audit,
-    `audit_rows.csv`. If the folder exists a `_2`, `_3`... is used; nothing is overwritten.
+    Files: `summary.json` and `expert_portrait_rows.csv`. If the folder exists a `_2`, `_3`...
+    is used; nothing is overwritten.
     """
     date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     folder = Path(reports_dir) / f"portrait_impact_{date}"
@@ -218,10 +160,6 @@ def write_portrait_report(
         folder = Path(reports_dir) / f"portrait_impact_{date}_{n}"
     folder.mkdir(parents=True)
     expert_rows.to_csv(folder / "expert_portrait_rows.csv", index=False)
-    body: dict[str, Any] = {"expert": expert_summary}
-    if audit_rows is not None:
-        audit_rows.to_csv(folder / "audit_rows.csv", index=False)
-        body["audit"] = audit_summary
     with open(folder / "summary.json", "x", encoding="utf-8") as f:
-        f.write(json.dumps(body, indent=2, default=str) + "\n")
+        f.write(json.dumps({"expert": expert_summary}, indent=2, default=str) + "\n")
     return folder

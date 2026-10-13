@@ -9,13 +9,10 @@ from coralid.labeling import (
     NO,
     UNSURE,
     YES,
-    ReviewIngest,
     answer_column,
-    audit_sheet,
     export_review_sheet,
     ingest_review,
     normalize_answer,
-    summarize_audit,
 )
 from coralid.masks import AnnotationStore
 from tests.helpers import make_annotation, rect_mask, write_json_dir
@@ -129,109 +126,29 @@ def test_ingest_lists_every_problem_without_raising():
     assert clean.problems.empty
 
 
-def test_ingest_reads_a_csv_and_the_old_audit_layout(tmp_path):
-    """The legacy audit sheet has image_name and coral_id, no key column."""
-    path = tmp_path / "audit.csv"
+def test_ingest_reads_a_csv_by_key_and_keeps_the_other_columns(tmp_path):
+    path = tmp_path / "sheet.csv"
     pd.DataFrame(
         {
-            "image_name": ["A.JPG", "B.JPG", "C.JPG"],
-            "coral_id": [4, 5, 6],
+            "key": ["A.JPG#4", "B.JPG#5", "C.JPG#6"],
             "confidence": [0.99, 0.9, 0.86],
-            "is_true_millepora": ["yes", "no", ""],
+            "is_millepora": ["yes", "no", ""],
             "actual_genus": ["", "Sinularia", ""],
             "notes": ["", "", ""],
         }
     ).to_csv(path, index=False)
-    review = ingest_review(path, "is_true_millepora")
+    review = ingest_review(path, "is_millepora")
     assert review.table["key"].tolist() == ["A.JPG#4", "B.JPG#5", "C.JPG#6"]
     assert review.table["answer"].tolist() == [YES, NO, None]
+    assert review.table["coral_id"].tolist() == [4, 5, 6]
     assert review.table["confidence"].tolist() == [0.99, 0.9, 0.86]  # other columns are kept
     assert review.problems.empty  # Sinularia is a known (soft coral) genus
 
 
-def test_ingest_needs_the_answer_column_and_a_key():
-    with pytest.raises(ValueError, match="no 'is_x' column"):
-        ingest_review(pd.DataFrame({"key": ["a#1"]}), "is_x")
-    with pytest.raises(ValueError, match="key"):
-        ingest_review(pd.DataFrame({"is_x": ["yes"]}), "is_x")
-
-
-def test_export_fill_ingest_round_trip(tmp_path):
-    path = tmp_path / "sheet.csv"
-    keys = [f"IMG_{i}.JPG#{i}" for i in range(4)]
-    export_review_sheet(keys, path, "is_millepora")
-    sheet = pd.read_csv(path, keep_default_na=False)
-    sheet["is_millepora"] = ["yes", "no", "?", ""]
-    sheet.loc[1, "actual_genus"] = "Porites"
-    sheet.to_csv(path, index=False)
-    review = ingest_review(path, "is_millepora")
-    assert review.table["answer"].tolist() == [YES, NO, UNSURE, None]
-    assert review.table.loc[1, "actual_genus"] == "Porites" and review.problems.empty
-
-
-# ----------------------------------------------------------------------------- the audit
-
-
-def _predictions():
-    return pd.DataFrame(
-        {
-            "image_name": ["A.JPG", "A.JPG", "B.JPG", "B.JPG", "C.JPG"],
-            "coral_id": [0, 1, 0, 1, 0],
-            "bbox": [[1, 2, 3, 4]] * 5,
-            "area": [30000] * 5,
-            "predicted_genus": ["Millepora", "Porites", "Millepora", "Millepora", "Acropora"],
-            "confidence": [0.9, 0.99, 0.95, 0.6, 0.8],
-            "runner_up": ["Acropora"] * 5,
-        }
-    )
-
-
-def test_audit_sheet_lists_the_genus_most_confident_first():
-    sheet = audit_sheet(_predictions(), "Millepora")
-    assert sheet["key"].tolist() == ["B.JPG#0", "A.JPG#0", "B.JPG#1"]
-    assert list(sheet.columns) == [
-        "key",
-        "image_name",
-        "coral_id",
-        "bbox",
-        "area",
-        "confidence",
-        "runner_up",
-        "is_millepora",
-        "actual_genus",
-        "notes",
-    ]
-    assert (sheet[["is_millepora", "actual_genus", "notes"]] == "").all().all()
-    assert audit_sheet(_predictions(), "Millepora", min_confidence=0.9)["key"].tolist() == [
-        "B.JPG#0",
-        "A.JPG#0",
-    ]
-    assert audit_sheet(_predictions(), "Porites", columns=("confidence",)).shape == (1, 5)
-    assert audit_sheet(_predictions(), "Pavona").empty
-
-
-def test_the_old_millepora_figures_as_a_range():
-    """66 yes / 46 no / 17 unsure: 58.9% of the decided, 51-64% counting the unsure."""
-    answers = [YES] * 66 + [NO] * 46 + [UNSURE] * 17 + [None] * 3
-    genus = [None] * 66 + ["Echinopora"] * 30 + ["Sinularia"] * 16 + [None] * 20
-    table = pd.DataFrame({"answer": pd.Series(answers, dtype=object), "actual_genus": genus})
-    summary = summarize_audit(table, "Millepora")
-    assert summary.counts == {YES: 66, NO: 46, UNSURE: 17, "pending": 3}
-    assert summary.precision_decided == pytest.approx(66 / 112)
-    assert summary.precision_unsure_wrong == pytest.approx(66 / 129)
-    assert summary.precision_unsure_right == pytest.approx(83 / 129)
-    low, high = summary.precision_decided_ci95
-    assert 0.49 < low < 0.589 < high < 0.68
-    assert summary.actual_genera == {"Echinopora": 30, "Sinularia": 16}
-    assert summary.to_dict()["n_rows"] == 132
-
-
-def test_summarize_audit_with_nothing_reviewed():
-    review = ingest_review(pd.DataFrame({"key": ["a.jpg#1"], "is_millepora": [""]}), "is_millepora")
-    assert isinstance(review, ReviewIngest)
-    summary = summarize_audit(review, "Millepora")
-    assert summary.precision_decided is None and summary.precision_unsure_right is None
-    assert summary.counts["pending"] == 1 and summary.actual_genera == {}
+def test_a_sheet_without_a_key_column_is_refused_not_matched_on_coral_id():
+    sheet = pd.DataFrame({"image_name": ["A.JPG"], "coral_id": [4], "is_millepora": ["yes"]})
+    with pytest.raises(ValueError, match="needs a 'key' column"):
+        ingest_review(sheet, "is_millepora")
 
 
 # ----------------------------------------------------------------------------- crop grids

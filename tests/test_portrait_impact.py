@@ -3,9 +3,7 @@ import json
 import pandas as pd
 import pytest
 
-from coralid.labeling import ingest_review
 from coralid.portrait_impact import (
-    audit_portrait_impact,
     expert_portrait_impact,
     write_portrait_report,
 )
@@ -115,58 +113,18 @@ def test_expert_portrait_summary_counts_the_unidentifiable_rows():
     json.dumps(s)
 
 
-def _audit(rows):
-    table = pd.DataFrame(rows, columns=["image_name", "coral_id", "confidence", "answer_raw"])
-    table["is_true_millepora"] = table.pop("answer_raw")
-    table["actual_genus"] = ["Echinopora" if a == "no" else "" for a in table["is_true_millepora"]]
-    return ingest_review(table, "is_true_millepora").table
-
-
-def test_audit_rows_on_portrait_photos_are_flagged_for_rereview():
-    audit = _audit(
-        [
-            ("L1.JPG", 0, 0.99, "yes"),
-            ("L1.JPG", 1, 0.97, "no"),
-            ("L2.JPG", 0, 0.9, "?"),
-            ("P1.JPG", 0, 0.95, "yes"),
-            ("P1.JPG", 1, 0.9, "no"),
-            ("P2.JPG", 5, 0.9, ""),  # not in the new baseline
-        ]
-    )
-    new = _new().assign(
-        predicted_genus=["Millepora", "Porites", "Millepora", "Millepora", "Acropora", "Millepora"]
-    )
-    rows, s = audit_portrait_impact(audit, new, _manifest())
-    assert len(rows) == 6 and rows["key"].tolist() == audit["key"].tolist()
-    by = rows.set_index("key")
-    assert by["needs_rereview"].tolist() == [False, False, False, True, True, True]
-    assert by["judgment_reusable"].tolist() == [True, True, False, False, False, False]
-    assert by.loc["L1.JPG#0", "new_is_target"] and not by.loc["L1.JPG#1", "new_is_target"]
-    assert pd.isna(by.loc["P2.JPG#5", "new_pred"]) and not by.loc["P2.JPG#5", "in_new_baseline"]
-    assert s["n_audit_rows"] == 6 and s["rows_by_orientation"] == {"landscape": 3, "portrait": 3}
-    assert s["portrait_judgments"] == {"yes": 1, "no": 1, "unsure": 0, "pending": 1}
-    assert s["landscape_judgments"] == {"yes": 1, "no": 1, "unsure": 1, "pending": 0}
-    assert s["portrait_rows_needing_rereview"] == 3 and s["portrait_in_new_baseline"] == 2
-    assert s["reusable_judgments"] == 2
-    assert s["landscape_share_yes_of_decided"] == 0.5
-    json.dumps(s)
-
-
 def test_the_report_is_written_as_a_new_folder_every_time(tmp_path):
     rows, s = expert_portrait_impact(_expert(), _legacy(), _new(), _manifest())
-    audit = _audit([("P1.JPG", 0, 0.95, "yes")])
-    a_rows, a_s = audit_portrait_impact(audit, _new(), _manifest())
-    first = write_portrait_report(rows, s, tmp_path, a_rows, a_s, date="2026-10-12")
+    first = write_portrait_report(rows, s, tmp_path, date="2026-10-12")
     second = write_portrait_report(rows, s, tmp_path, date="2026-10-12")
     assert (
         first.name == "portrait_impact_2026-10-12" and second.name == "portrait_impact_2026-10-12_2"
     )
-    assert sorted(p.name for p in first.iterdir()) == [
-        "audit_rows.csv",
-        "expert_portrait_rows.csv",
-        "summary.json",
-    ]
-    assert sorted(p.name for p in second.iterdir()) == ["expert_portrait_rows.csv", "summary.json"]
+    for folder in (first, second):
+        assert sorted(p.name for p in folder.iterdir()) == [
+            "expert_portrait_rows.csv",
+            "summary.json",
+        ]
     body = json.loads((first / "summary.json").read_text())
-    assert body["expert"]["portrait_rows"] == 4 and body["audit"]["genus"] == "Millepora"
+    assert list(body) == ["expert"] and body["expert"]["portrait_rows"] == 4
     assert len(pd.read_csv(first / "expert_portrait_rows.csv")) == 4

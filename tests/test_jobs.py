@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from coralid.baseline import baseline_paths, run_baseline
+from coralid.config import meta_path
 from coralid.jobs import (
     JobError,
     ManifestIncomplete,
@@ -12,7 +13,11 @@ from coralid.jobs import (
     export_blind_review,
     train_probe,
 )
+from coralid.labeling import ingest_review
 from coralid.probe import ProbeError
+from coralid.review_export import read_blind_key
+from coralid.review_scoring import score_blind_review
+from coralid.review_source import ReviewSourceError, baseline_source
 from coralid.zero_shot import load_embeddings, save_embeddings
 from tests.fake_encoder import FakeEncoder
 from tests.run_data import labels_for, make_run, write_expert_inputs
@@ -118,6 +123,54 @@ def test_export_review_writes_hand_out_files_and_a_private_key(baseline_run):
     assert list(sheet.columns) == ["key", "is_acropora", "actual_genus", "notes"]  # blind
     with pytest.raises(FileExistsError):  # the same seed would overwrite
         export_blind_review(cfg, "Acropora", n_pred=2, n_other=2, n_assaf=2, pdf=False)
+
+
+def test_the_key_records_the_baseline_the_review_was_drawn_from(baseline_run):
+    cfg = baseline_run
+    review, files = export_blind_review(cfg, "Acropora", n_pred=2, n_other=2, n_assaf=2, pdf=False)
+    paths = baseline_paths(cfg)
+    predictions_meta = json.loads(meta_path(paths.predictions).read_text())
+    for recorded in (review.meta["source"], json.loads(files["key_meta"].read_text())["source"]):
+        assert recorded["path"] == str(paths.predictions)
+        assert recorded["file"] == "finetuned-bioclip__taxonomy_v1__hard20__all.parquet"
+        assert (recorded["model"], recorded["prompt_set"], recorded["label_set"]) == (
+            "finetuned-bioclip",
+            "taxonomy_v1",
+            "hard20",
+        )
+        assert recorded["git_commit"] == predictions_meta["git_commit"]
+        assert recorded["created_utc"] == predictions_meta["created_utc"]
+        assert recorded["n_rows"] == len(pd.read_parquet(paths.predictions))
+
+
+def test_a_sampled_crop_that_the_manifest_does_not_keep_stops_the_export(baseline_run):
+    cfg = baseline_run
+    manifest = pd.read_parquet(cfg.manifest_path)
+    manifest.loc[manifest["image_name"] == manifest["image_name"].iloc[0], "keep"] = False
+    manifest.to_parquet(cfg.manifest_path)
+    with pytest.raises(ReviewSourceError, match="not kept rows of the manifest"):
+        export_blind_review(cfg, "Acropora", n_pred=100, n_other=100, n_assaf=2, pdf=False)
+    assert not (cfg.reviews_dir / "keys").exists()
+
+
+def test_scoring_against_a_baseline_that_was_made_again_fails(baseline_run):
+    cfg = baseline_run
+    review, files = export_blind_review(cfg, "Acropora", n_pred=2, n_other=2, n_assaf=2, pdf=False)
+    key, meta = read_blind_key(
+        cfg.reviews_dir / "keys", files["key"].name.removesuffix("_answer_key.csv")
+    )
+    sheet = pd.DataFrame(
+        {"key": review.sheet["key"], "is_acropora": "yes", "actual_genus": "", "notes": ""}
+    )
+    analyst = ingest_review(sheet, "is_acropora")
+    score = score_blind_review(analyst, key, meta, current_source=baseline_source(cfg))
+    assert score.source["label_set"] == "hard20"
+    # the baseline is run again: a new creation time (and so, in real life, perhaps new numbers)
+    path = meta_path(baseline_paths(cfg).predictions)
+    body = json.loads(path.read_text())
+    path.write_text(json.dumps({**body, "created_utc": "2031-01-01T00:00:00Z"}))
+    with pytest.raises(ReviewSourceError, match="created_utc"):
+        score_blind_review(analyst, key, meta, current_source=baseline_source(cfg))
 
 
 # ------------------------------------------------------------------------- train-probe

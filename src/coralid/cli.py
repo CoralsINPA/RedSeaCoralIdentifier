@@ -43,6 +43,7 @@ from coralid.jobs import (
 )
 from coralid.probe import ProbeError
 from coralid.reports import probe_report_lines
+from coralid.review_source import ReviewSourceError, baseline_source
 from coralid.segmentation import (
     SegmentationError,
     list_images,
@@ -56,6 +57,7 @@ _STOPPED = (
     SegmentationError,
     JobError,
     ProbeError,
+    ReviewSourceError,
     ConfigError,
     FileNotFoundError,
     FileExistsError,
@@ -149,12 +151,13 @@ def build_parser() -> argparse.ArgumentParser:
         commands,
         "export-review",
         "write a blind review sheet of one genus (hand-out files and a hidden key)",
-        "Sample crops the baseline calls the genus plus random others, with no model output "
-        "shown, and write the sheets and PDFs to reviews/exports/ (hand these out) and the answer "
-        "key to reviews/keys/ (keep it private).",
+        "Sample crops the 20-genus baseline calls the genus plus random others, with no model "
+        "output shown, and write the sheets and PDFs to reviews/exports/ (hand these out) and "
+        "the answer key to reviews/keys/ (keep it private). Draws only from the saved baseline "
+        "and stops if its meta file does not say label set hard20 and the config's model and "
+        "prompt set; the source is recorded in the key's meta file.",
     )
     rev.add_argument("--genus", default="Millepora", help="the genus to review (default Millepora)")
-    rev.add_argument("--audit-csv", help="an old audit to reuse (default for Millepora: V2's)")
     rev.add_argument("--n-pred", type=int, default=150, help="crops the baseline calls the genus")
     rev.add_argument("--n-other", type=int, default=150, help="crops it called something else")
     rev.add_argument("--n-assaf", type=int, default=40, help="crops on the expert's sheet")
@@ -300,14 +303,15 @@ def _export_review(args: argparse.Namespace) -> int:
     review, files = export_blind_review(
         cfg,
         args.genus,
-        args.audit_csv,
         n_pred=args.n_pred,
         n_other=args.n_other,
         n_assaf=args.n_assaf,
         seed=args.seed,
         pdf=not args.no_pdf,
     )
-    print(f"Wrote a blind review of {args.genus}: {review.meta['n_on_sheet']} crops")
+    print(f"Wrote a blind review of {args.genus}: {review.meta['n_on_sheet']} crops, drawn from")
+    for line in baseline_source(cfg).lines():
+        print(f"  {line}")
     for what, path in files.items():
         print(f"  {what:12} {path}")
     print(f"Hand out {cfg.reviews_dir / 'exports'}. KEEP {cfg.reviews_dir / 'keys'} PRIVATE.")

@@ -1,19 +1,19 @@
 """Scoring a blind review (`coralid.genus_audit.build_blind_review`).
 
 Inputs: the analyst's completed sheet, the hidden answer key and, optionally, the expert's
-completed sheet for his subset. Outputs:
+completed sheet for his subset. The key records which predictions file the crops were drawn
+from; scoring **stops** unless that is the baseline as it is now (`coralid.review_source`).
+Outputs:
 
 - **Precision** of the baseline's genus calls and the **miss rate** among its other calls (the
   share of crops it did not call the genus that are the genus), then **recall**, each with an
-  interval. The crops are a sample of the baseline's calls, plus two groups that are reviewed in
-  full and so add no sampling error: the forced re-reviews and the crops judged before on
-  landscape photos (their old answers are reused as they are). The interval is the Wilson
-  interval of the sampled part, scaled to the whole population; the recall interval combines the
-  ends of the two, so it is wide on purpose.
+  interval. The crops are random samples of the baseline's two groups of calls; the interval is
+  the Wilson interval of the sample, scaled to the whole group, and the recall interval combines
+  the ends of the two, so it is wide on purpose.
 - Every figure comes twice, with the unsure counted as **no** and as **yes**; the true value lies
   in between (for recall, the two ends cross, so read the range).
 - **Precision by confidence band**, from the random sample of the baseline's calls (the band
-  edges are 0.5, 0.7 and 0.85; the old audit looked only at 0.85 and above).
+  edges are 0.5, 0.7 and 0.85).
 - **Analyst against expert**: agreement on the crops both answered, by answer and by Cohen's
   kappa. If it is high the analyst can label for the expert; if it is low the figures above are
   the analyst's opinion only.
@@ -33,62 +33,39 @@ from typing import Any
 import pandas as pd
 
 from coralid.evaluation import wilson_interval
-from coralid.genus_audit import (
-    FORCED_PORTRAIT,
-    FORCED_UNSURE,
-    OTHER_RANDOM,
-    PRED_RANDOM,
-    PRIOR_DECIDED,
-)
+from coralid.genus_audit import OTHER_RANDOM, PRED_RANDOM
 from coralid.labeling import ACTUAL_GENUS, ANSWERS, NO, UNSURE, YES, ReviewIngest
+from coralid.review_source import PredictionSource, check_same_source
 
 NOTES = [
     "The analyst is not an expert and the figures are the analyst's opinion until the "
     "agreement with the expert (expert_agreement) is known.",
-    "Crops already judged on landscape photos in the old audit keep their old answers; the old "
-    "analyst saw the model's answer.",
+    "The figures are about the predictions named in 'source' (the 20-genus baseline of that "
+    "commit and time), not about any other run.",
 ]
 
 
-def pooled_rate(
-    census: tuple[int, int], sample: tuple[int, int], pool_size: int
-) -> dict[str, Any] | None:
-    """The share of yes in a population made of reviewed-in-full crops and a random sample.
+def pooled_rate(sample: tuple[int, int], pool_size: int) -> dict[str, Any] | None:
+    """The share of yes in a pool of crops, from a random sample of it.
 
-    `census` is `(yes, n)` over the crops that were all reviewed; `sample` is `(yes, n)` over the
-    random sample drawn from a pool of `pool_size` crops. Returns the point estimate and the
-    interval (the Wilson interval of the sample, scaled to the pool), or None if there is nothing
-    to estimate from.
+    `sample` is `(yes, n)` over the random sample drawn from a pool of `pool_size` crops.
+    Returns the point estimate and the Wilson interval of the sample, scaled to the pool; if the
+    whole pool was reviewed there is no sampling error and the interval is the point. None if
+    nothing was answered.
     """
-    yes_c, n_c = census
-    yes_s, n_s = sample
-    if n_s == 0 and pool_size > 0:
+    yes, n = sample
+    if n == 0:
         return None
-    if pool_size > 0 and n_s >= pool_size:  # the "sample" is the whole pool: reviewed in full
-        yes_c, n_c, yes_s, n_s, pool_size = yes_c + yes_s, n_c + n_s, 0, 0, 0
-    total = n_c + pool_size
-    if total == 0:
-        return None
-    if pool_size == 0 or n_s == 0:
-        rate = yes_c / total
-        return _rate(rate, rate, rate, n_s, n_c, pool_size)
-    interval = wilson_interval(yes_s, n_s)
+    if n >= pool_size:  # the "sample" is the whole pool: reviewed in full
+        rate = yes / n
+        return _rate(rate, rate, rate, n, n)
+    interval = wilson_interval(yes, n)
     assert interval is not None
-    point = (yes_c + pool_size * yes_s / n_s) / total
-    low = (yes_c + pool_size * interval[0]) / total
-    high = (yes_c + pool_size * interval[1]) / total
-    return _rate(point, low, high, n_s, n_c, pool_size)
+    return _rate(yes / n, interval[0], interval[1], n, pool_size)
 
 
-def _rate(point: float, low: float, high: float, n_sample: int, n_census: int, pool: int) -> dict:
-    return {
-        "point": point,
-        "lo": low,
-        "hi": high,
-        "n_sample": n_sample,
-        "n_census": n_census,
-        "pool": pool,
-    }
+def _rate(point: float, low: float, high: float, n_sample: int, pool: int) -> dict:
+    return {"point": point, "lo": low, "hi": high, "n_sample": n_sample, "pool": pool}
 
 
 def _yes_n(answers: pd.Series, unsure_as: str) -> tuple[int, int]:
@@ -98,20 +75,13 @@ def _yes_n(answers: pd.Series, unsure_as: str) -> tuple[int, int]:
     return yes, len(given)
 
 
-def _combine(*parts: tuple[int, int]) -> tuple[int, int]:
-    return sum(p[0] for p in parts), sum(p[1] for p in parts)
-
-
 def _population(
     key: pd.DataFrame, genus: str, is_target: bool, pool: int, unsure_as: str
 ) -> dict[str, Any] | None:
     """The yes-rate among the baseline's genus calls (`is_target`) or among its other calls."""
-    mine = key[(key["new_pred"] == genus) == is_target]
-    prior = mine[mine["selection"] == PRIOR_DECIDED]["prior_answer"]
-    forced = mine[mine["selection"].isin([FORCED_UNSURE, FORCED_PORTRAIT])]["answer"]
+    mine = key[(key["baseline_pred"] == genus) == is_target]
     sampled = mine[mine["selection"] == (PRED_RANDOM if is_target else OTHER_RANDOM)]["answer"]
-    census = _combine(_yes_n(prior, unsure_as), _yes_n(forced, unsure_as))
-    return pooled_rate(census, _yes_n(sampled, unsure_as), pool)
+    return pooled_rate(_yes_n(sampled, unsure_as), pool)
 
 
 def _recall(precision: dict | None, miss: dict | None, n_called: int, n_other: int) -> Any:
@@ -211,12 +181,14 @@ class BlindScore:
     precision_by_confidence: pd.DataFrame  # the random sample of genus calls, by band
     false_positive_genera: pd.DataFrame  # what the "no" crops really are
     missed_as: pd.DataFrame  # what the baseline called the genus crops it missed
+    source: dict[str, Any] = field(default_factory=dict)  # the predictions the key was drawn from
     notes: list[str] = field(default_factory=lambda: list(NOTES))
 
     def to_dict(self) -> dict[str, Any]:
         """A JSON-friendly form."""
         return {
             "genus": self.genus,
+            "source": self.source,
             "n_on_sheet": self.n_on_sheet,
             "answered": self.answered,
             "estimates": self.estimates,
@@ -239,17 +211,22 @@ def score_blind_review(
     key: pd.DataFrame,
     meta: dict[str, Any],
     expert: ReviewIngest | pd.DataFrame | None = None,
+    *,
+    current_source: PredictionSource,
 ) -> BlindScore:
     """Score the analyst's answers (and, if given, the expert's) against the answer key.
 
-    `meta` is the dict that `build_blind_review` returned (pool sizes, genus). Crops the analyst
-    has not answered yet are left out of every estimate.
+    `meta` is the dict that `build_blind_review` returned (pool sizes, genus, source) and
+    `current_source` is `baseline_source(cfg)` now. Raises `ReviewSourceError` unless the key's
+    recorded source is that baseline. Crops the analyst has not answered yet are left out of
+    every estimate.
     """
+    check_same_source(meta.get("source"), current_source)
     genus = meta["genus"]
     a = _table(analyst)
     e = _table(expert)
     key = key.merge(a[["key", "answer", ACTUAL_GENUS]], on="key", how="left")
-    on_sheet = key[key["selection"] != PRIOR_DECIDED]
+    on_sheet = key
     answered = {x: int((on_sheet["answer"] == x).sum()) for x in ANSWERS} | {
         "pending": int(on_sheet["answer"].isna().sum())
     }
@@ -272,8 +249,8 @@ def score_blind_review(
         genus_by_expert = final["key"].map(said[ACTUAL_GENUS])
         final["final"] = by_expert.where(by_expert.notna(), final["final"])
         final["final_genus"] = genus_by_expert.where(by_expert.notna(), final["final_genus"])
-    wrong_calls = final[(final["new_pred"] == genus) & (final["final"] == NO)]
-    missed = final[(final["new_pred"] != genus) & (final["final"] == YES)]
+    wrong_calls = final[(final["baseline_pred"] == genus) & (final["final"] == NO)]
+    missed = final[(final["baseline_pred"] != genus) & (final["final"] == YES)]
     return BlindScore(
         genus=genus,
         n_on_sheet=len(on_sheet),
@@ -284,12 +261,13 @@ def score_blind_review(
         false_positive_genera=_count(
             wrong_calls["final_genus"].fillna("(not given)"), "actual_genus"
         ),
-        missed_as=_count(missed["new_pred"], "called_instead"),
+        missed_as=_count(missed["baseline_pred"], "called_instead"),
+        source=dict(meta["source"]),
     )
 
 
 def _population_size(rate: dict[str, Any] | None) -> int:
-    return 0 if rate is None else rate["n_census"] + rate["pool"]
+    return 0 if rate is None else rate["pool"]
 
 
 def _count(values: pd.Series, name: str) -> pd.DataFrame:

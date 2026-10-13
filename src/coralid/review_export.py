@@ -102,8 +102,7 @@ def read_blind_key(
             "key": str,
             "image_name": str,
             "selection": str,
-            "new_pred": str,
-            "prior_answer": str,
+            "baseline_pred": str,
         },
     )
     key["coral_id"] = key["coral_id"].astype(int)

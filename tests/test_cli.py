@@ -316,6 +316,7 @@ def test_evaluate_and_export_review_and_train_probe_commands(cfg, args, capsys):
     )
     out = capsys.readouterr().out
     assert "KEEP" in out and "PRIVATE" in out
+    assert "drawn from" in out and "label set hard20" in out and "prompt set taxonomy_v1" in out
     assert any((cfg.reviews_dir / "keys").glob("*_answer_key.csv"))
     assert (
         main(

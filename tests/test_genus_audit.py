@@ -1,25 +1,29 @@
-import json
+from dataclasses import replace
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from coralid.genus_audit import (
-    FORCED_PORTRAIT,
-    FORCED_UNSURE,
-    LABEL,
-    OTHER_RANDOM,
-    PRED_RANDOM,
-    PRIOR_DECIDED,
-    audit_agreement,
-    build_blind_review,
-    load_legacy_audit,
-)
+from coralid.genus_audit import OTHER_RANDOM, PRED_RANDOM, build_blind_review
 from coralid.labeling import ingest_review
+from coralid.review_source import PredictionSource, ReviewSourceError
 
 GENUS = "Millepora"
 OTHERS = ["Acropora", "Porites", "Pavona", "Montipora", "Echinopora"]
 N_LAND, N_PORT, PER_IMAGE = 10, 4, 25
+SOURCE = PredictionSource(
+    file="finetuned-bioclip__taxonomy_v1__hard20__all.parquet",
+    path="/drive/run/predictions/finetuned-bioclip__taxonomy_v1__hard20__all.parquet",
+    git_commit="abc123",
+    created_utc="2026-10-12T20:00:00Z",
+    model="finetuned-bioclip",
+    prompt_set="taxonomy_v1",
+    label_set="hard20",
+    n_rows=(N_LAND + N_PORT) * PER_IMAGE,
+)
+
+
+SOURCE_SMALL = replace(SOURCE, n_rows=6)
 
 
 def _world(seed=0):
@@ -44,128 +48,21 @@ def _world(seed=0):
                 }
             )
     table = pd.DataFrame(rows)
-    return table[["image_name", "coral_id", "frame_w", "frame_h"]], table.drop(
-        columns=["frame_w", "frame_h"]
-    )
-
-
-def _audit_file(tmp_path, rows):
-    """A legacy audit CSV: (image, coral_id, answer, actual genus)."""
-    path = tmp_path / "millepora_sharp_audit.csv"
-    pd.DataFrame(
-        {
-            "image_name": [r[0] for r in rows],
-            "coral_id": [r[1] for r in rows],
-            "bbox": "[1, 2, 3, 4]",
-            "area": 30000,
-            "confidence": 0.95,
-            "runner_up": "Acropora",
-            "sharpness": 200.0,
-            "is_true_millepora": [r[2] for r in rows],
-            "actual_genus": [r[3] for r in rows],
-            "notes": "",
-        }
-    ).to_csv(path, index=False)
-    return path
-
-
-ROWS = [
-    ("L00.JPG", 0, "yes", ""),
-    ("L00.JPG", 1, "yes", ""),
-    ("L01.JPG", 0, "no", "Echinopora"),
-    ("L01.JPG", 1, "?", ""),
-    ("L02.JPG", 0, "?", ""),
-    ("L03.JPG", 0, "yes", ""),
-    ("L03.JPG", 1, "no", "Porites"),
-    ("P10.JPG", 0, "yes", ""),
-    ("P10.JPG", 1, "no", "Pavona"),
-    ("P11.JPG", 0, "?", ""),
-    ("P11.JPG", 99, "yes", ""),  # not in the baseline
-]
-
-
-def test_load_legacy_audit_reads_the_judgments_and_numbers(tmp_path):
-    audit = load_legacy_audit(_audit_file(tmp_path, ROWS))
-    assert audit["key"].iloc[0] == "L00.JPG#0"
-    assert audit["answer"].tolist()[:5] == ["yes", "yes", "no", "unsure", "unsure"]
-    assert audit["confidence"].dtype == float and audit["sharpness"].iloc[0] == 200.0
-
-
-def test_load_legacy_audit_warns_about_what_it_could_not_read(tmp_path, caplog):
-    rows = [("A.JPG", 0, "yes", ""), ("A.JPG", 1, "no", ""), ("A.JPG", 2, "yes?", "")]
-    with caplog.at_level("WARNING", logger="coralid.genus_audit"):
-        audit = load_legacy_audit(_audit_file(tmp_path, rows))
-    assert "2 problem(s)" in caplog.text and "invalid_answer" in caplog.text
-    assert audit["answer"].tolist() == ["yes", "no", None]  # an unreadable answer is pending
-
-
-def _set_calls(preds, calls):
-    """Force the baseline's call for some crops: {(image, id): genus}."""
-    preds = preds.copy()
-    for (name, cid), genus in calls.items():
-        preds.loc[(preds["image_name"] == name) & (preds["coral_id"] == cid), "predicted_genus"] = (
-            genus
-        )
-    return preds
-
-
-def test_audit_agreement_is_a_range_and_keeps_portrait_apart(tmp_path):
-    manifest, preds = _world()
-    preds = _set_calls(
-        preds,
-        {
-            ("L00.JPG", 0): GENUS,  # yes, and called Millepora: agree
-            ("L00.JPG", 1): "Porites",  # yes, but called Porites: disagree
-            ("L01.JPG", 0): "Porites",  # no, and not Millepora: agree
-            ("L01.JPG", 1): GENUS,  # unsure, called Millepora
-            ("L02.JPG", 0): "Acropora",  # unsure, not called
-            ("L03.JPG", 0): GENUS,  # yes, called: agree
-            ("L03.JPG", 1): GENUS,  # no, but called Millepora: disagree
-            ("P10.JPG", 0): GENUS,
-            ("P10.JPG", 1): GENUS,
-            ("P11.JPG", 0): "Porites",
-        },
-    )
-    audit = load_legacy_audit(_audit_file(tmp_path, ROWS))
-    out = audit_agreement(audit, preds, manifest, GENUS)
-    assert out["label"] == LABEL and "not a precision" in LABEL and out["genus"] == GENUS
-    land = out["landscape"]
-    assert (land["audit_rows"], land["in_baseline"], land["judged"]) == (7, 7, 7)
-    assert land["agreement"] == {
-        "n": 7,
-        "unsure_as_wrong": pytest.approx(3 / 7),  # three agreements
-        "unsure_as_right": pytest.approx(5 / 7),  # and the two unsure
-    }
-    grid = land["analyst_answer_by_new_call"]
-    assert grid["yes"] == {"genus": 2, "other": 1} and grid["no"] == {"genus": 1, "other": 1}
-    assert grid["unsure"] == {"genus": 1, "other": 1}
-    calls = land["new_genus_calls"]
-    assert (calls["n"], calls["analyst_yes"], calls["analyst_no"], calls["analyst_unsure"]) == (
-        4,
-        2,
-        1,
-        1,
-    )
-    assert calls["share_yes_unsure_wrong"] == 0.5 and calls["share_yes_unsure_right"] == 0.75
-    port = out["portrait"]
-    assert port["comparable"] is False and "wrong region" in port["why"]
-    assert (port["audit_rows"], port["in_baseline"], port["not_in_baseline"]) == (4, 3, 1)
-    json.dumps(out)
+    manifest = table[["image_name", "coral_id", "frame_w", "frame_h"]].assign(keep=True)
+    return manifest, table.drop(columns=["frame_w", "frame_h"])
 
 
 # ----------------------------------------------------------------------------- the blind sheet
 
 
 @pytest.fixture
-def world_and_audit(tmp_path):
-    manifest, preds = _world()
-    audit = load_legacy_audit(_audit_file(tmp_path, ROWS))
-    return manifest, preds, audit
+def world():
+    return _world()
 
 
-def test_the_sheet_shows_nothing_but_the_key_and_blank_answers(world_and_audit):
-    manifest, preds, audit = world_and_audit
-    review = build_blind_review(preds, manifest, GENUS, audit, n_pred=15, n_other=15, seed=3)
+def test_the_sheet_shows_nothing_but_the_key_and_blank_answers(world):
+    manifest, preds = world
+    review = build_blind_review(preds, manifest, GENUS, n_pred=15, n_other=15, seed=3)
     assert list(review.sheet.columns) == ["key", "is_millepora", "actual_genus", "notes"]
     assert review.answer == "is_millepora"
     assert (review.sheet[["is_millepora", "actual_genus", "notes"]] == "").all().all()
@@ -174,98 +71,64 @@ def test_the_sheet_shows_nothing_but_the_key_and_blank_answers(world_and_audit):
     assert "confidence" not in text and "runner_up" not in text and "Acropora" not in text
 
 
-def test_the_sample_is_random_mixed_and_leaves_out_what_was_judged(world_and_audit):
-    manifest, preds, audit = world_and_audit
-    review = build_blind_review(preds, manifest, GENUS, audit, n_pred=15, n_other=15, seed=3)
+def test_the_sample_is_random_mixed_and_drawn_from_the_predictions_only(world):
+    manifest, preds = world
+    review = build_blind_review(preds, manifest, GENUS, n_pred=15, n_other=15, seed=3)
     key = review.key
-    on_sheet = key[key["selection"] != PRIOR_DECIDED]
-    assert on_sheet["key"].tolist() == review.sheet["key"].tolist()  # sheet order is the key's
-    by = on_sheet["selection"].value_counts().to_dict()
-    # forced: L01#1 and L02#0 (old unsure, landscape) and the 3 portrait rows in the baseline
-    assert by[FORCED_UNSURE] == 2 and by[FORCED_PORTRAIT] == 3
-    assert by[PRED_RANDOM] == 15 and by[OTHER_RANDOM] == 15
-    random_pred = on_sheet[on_sheet["selection"] == PRED_RANDOM]
-    random_other = on_sheet[on_sheet["selection"] == OTHER_RANDOM]
-    assert (random_pred["new_pred"] == GENUS).all() and (random_other["new_pred"] != GENUS).all()
-    # already judged on a landscape photo (yes / no): not on the sheet, kept in the key
-    prior = key[key["selection"] == PRIOR_DECIDED]
-    assert sorted(prior["key"]) == ["L00.JPG#0", "L00.JPG#1", "L01.JPG#0", "L03.JPG#0", "L03.JPG#1"]
-    assert prior["sheet_order"].isna().all() and not set(prior["key"]) & set(review.sheet["key"])
-    # portrait rows are reviewed again whatever they were judged, except the one not in the baseline
-    port = on_sheet[on_sheet["selection"] == FORCED_PORTRAIT]
-    assert sorted(port["key"]) == ["P10.JPG#0", "P10.JPG#1", "P11.JPG#0"]
-    assert port.set_index("key").loc["P10.JPG#0", "prior_answer"] == "yes"
-    assert review.meta["audit_rows_not_in_baseline"] == 1 and review.meta["n_prior_decided"] == 5
-    assert len(review.sheet) == review.meta["n_on_sheet"] == 35
+    assert key["key"].tolist() == review.sheet["key"].tolist()  # sheet order is the key's
+    assert key["selection"].value_counts().to_dict() == {PRED_RANDOM: 15, OTHER_RANDOM: 15}
+    called = key[key["selection"] == PRED_RANDOM]
+    other = key[key["selection"] == OTHER_RANDOM]
+    assert (called["baseline_pred"] == GENUS).all() and (other["baseline_pred"] != GENUS).all()
+    assert set(key["key"]) <= set(preds["image_name"] + "#" + preds["coral_id"].astype(str))
+    assert key["orientation"].isin(["landscape", "portrait"]).all()
+    assert review.meta["n_pool_pred"] + review.meta["n_pool_other"] == len(preds)
+    assert len(review.sheet) == review.meta["n_on_sheet"] == 30
+    assert "prior_answer" not in key.columns and "audit_rows_not_in_baseline" not in review.meta
 
 
-def test_the_pools_exclude_judged_and_forced_crops(world_and_audit):
-    manifest, preds, audit = world_and_audit
-    review = build_blind_review(preds, manifest, GENUS, audit, n_pred=15, n_other=15, seed=3)
-    called = int((preds["predicted_genus"] == GENUS).sum())
-    judged_or_forced = set(audit["key"]) - {"P11.JPG#99"}
-    taken_called = sum(
-        1
-        for k in judged_or_forced
-        if preds.set_index(preds["image_name"] + "#" + preds["coral_id"].astype(str)).loc[
-            k, "predicted_genus"
-        ]
-        == GENUS
-    )
-    assert review.meta["n_pool_pred"] == called - taken_called
-    assert review.meta["n_pool_pred"] + review.meta["n_pool_other"] == len(preds) - len(
-        judged_or_forced
-    )
-
-
-def test_the_expert_subset_has_every_unsure_crop_and_about_forty(world_and_audit):
-    manifest, preds, audit = world_and_audit
-    review = build_blind_review(preds, manifest, GENUS, audit, n_pred=60, n_other=60, seed=1)
+def test_the_expert_subset_is_forty_crops_of_the_sheet_in_its_own_order(world):
+    manifest, preds = world
+    review = build_blind_review(preds, manifest, GENUS, n_pred=60, n_other=60, seed=1)
     key = review.key.set_index("key")
     assaf = review.assaf_sheet
     assert set(assaf["key"]) <= set(review.sheet["key"]) and assaf["key"].is_unique
     assert len(assaf) == 40 == review.meta["n_for_assaf"]
-    for unsure in ("L01.JPG#1", "L02.JPG#0", "P11.JPG#0"):  # the old audit's unsure crops
-        assert unsure in set(assaf["key"])
     assert key.loc[list(assaf["key"]), "for_assaf"].all()
     assert list(assaf.columns) == list(review.sheet.columns)
-    assert assaf["key"].tolist() != sorted(assaf["key"]) or len(assaf) < 3  # shuffled
-    many_unsure = build_blind_review(preds, manifest, GENUS, audit, n_pred=5, n_other=5, n_assaf=2)
-    assert len(many_unsure.assaf_sheet) >= 3  # the unsure crops are never dropped
+    assert assaf["key"].tolist() != sorted(assaf["key"])  # shuffled
+    small = build_blind_review(preds, manifest, GENUS, n_pred=5, n_other=5, n_assaf=2)
+    assert len(small.assaf_sheet) == 2
+    assert (
+        len(build_blind_review(preds, manifest, GENUS, n_pred=5, n_other=5, n_assaf=0).assaf_sheet)
+        == 0
+    )
 
 
-def test_the_same_seed_gives_the_same_sheets_and_another_seed_does_not(world_and_audit):
-    manifest, preds, audit = world_and_audit
-    a = build_blind_review(preds, manifest, GENUS, audit, n_pred=20, n_other=20, seed=5)
-    b = build_blind_review(preds, manifest, GENUS, audit, n_pred=20, n_other=20, seed=5)
-    c = build_blind_review(preds, manifest, GENUS, audit, n_pred=20, n_other=20, seed=6)
+def test_the_same_seed_gives_the_same_sheets_and_another_seed_does_not(world):
+    manifest, preds = world
+    a = build_blind_review(preds, manifest, GENUS, n_pred=20, n_other=20, seed=5)
+    b = build_blind_review(preds, manifest, GENUS, n_pred=20, n_other=20, seed=5)
+    c = build_blind_review(preds, manifest, GENUS, n_pred=20, n_other=20, seed=6)
     pd.testing.assert_frame_equal(a.sheet, b.sheet)
     pd.testing.assert_frame_equal(a.assaf_sheet, b.assaf_sheet)
     pd.testing.assert_frame_equal(a.key, b.key)
     assert a.sheet["key"].tolist() != c.sheet["key"].tolist()
 
 
-def test_without_an_audit_nothing_is_excluded_or_forced(world_and_audit):
-    manifest, preds, _ = world_and_audit
-    review = build_blind_review(preds, manifest, GENUS, None, n_pred=10, n_other=10, seed=2)
-    assert review.key["selection"].isin([PRED_RANDOM, OTHER_RANDOM]).all()
-    assert len(review.sheet) == 20 and review.meta["n_prior_decided"] == 0
-    assert review.meta["n_pool_pred"] + review.meta["n_pool_other"] == len(preds)
-
-
-def test_a_pool_smaller_than_the_request_is_taken_whole(world_and_audit):
-    manifest, preds, _ = world_and_audit
+def test_a_pool_smaller_than_the_request_is_taken_whole(world):
+    manifest, preds = world
     called = int((preds["predicted_genus"] == GENUS).sum())
-    review = build_blind_review(preds, manifest, GENUS, None, n_pred=10_000, n_other=3, seed=2)
+    review = build_blind_review(preds, manifest, GENUS, n_pred=10_000, n_other=3, seed=2)
     assert review.meta["n_by_selection"][PRED_RANDOM] == called
     assert review.meta["n_by_selection"][OTHER_RANDOM] == 3
 
 
-def test_the_completed_sheet_comes_back_through_ingest(world_and_audit, tmp_path):
+def test_the_completed_sheet_comes_back_through_ingest(world, tmp_path):
     from coralid.labeling import export_review_sheet
 
-    manifest, preds, audit = world_and_audit
-    review = build_blind_review(preds, manifest, GENUS, audit, n_pred=6, n_other=6, seed=4)
+    manifest, preds = world
+    review = build_blind_review(preds, manifest, GENUS, n_pred=6, n_other=6, seed=4)
     path = export_review_sheet(review.sheet["key"].tolist(), tmp_path / "s.csv", review.answer)
     sheet = pd.read_csv(path, keep_default_na=False)
     sheet.loc[0, "is_millepora"] = "yes"
@@ -275,6 +138,33 @@ def test_the_completed_sheet_comes_back_through_ingest(world_and_audit, tmp_path
     back = ingest_review(path, review.answer)
     assert back.table["key"].tolist() == review.sheet["key"].tolist() and back.problems.empty
     assert back.counts()["yes"] == 1 and back.counts()["pending"] == len(sheet) - 2
+
+
+# ----------------------------------------------------------------------------- the source
+
+
+def test_the_review_records_where_its_predictions_came_from(world):
+    manifest, preds = world
+    review = build_blind_review(preds, manifest, GENUS, n_pred=5, n_other=5, source=SOURCE)
+    assert review.meta["source"] == SOURCE.to_dict()
+    assert review.meta["source"]["label_set"] == "hard20"
+    assert build_blind_review(preds, manifest, GENUS, n_pred=5, n_other=5).meta["source"] is None
+
+
+def test_a_sampled_crop_that_is_not_a_kept_manifest_row_is_refused(world):
+    manifest, preds = world
+    dropped = manifest.copy()
+    dropped.loc[dropped["image_name"] == "L00.JPG", "keep"] = False
+    with pytest.raises(ReviewSourceError, match="not kept rows of the manifest"):
+        build_blind_review(preds, dropped, GENUS, n_pred=10_000, n_other=10_000)
+    with pytest.raises(ReviewSourceError, match="no 'keep' column"):
+        build_blind_review(preds, manifest.drop(columns="keep"), GENUS, n_pred=3, n_other=3)
+
+
+def test_predictions_that_are_not_the_source_file_are_refused(world):
+    manifest, preds = world
+    with pytest.raises(ReviewSourceError, match="they are not that file"):
+        build_blind_review(preds.head(100), manifest, GENUS, n_pred=5, n_other=5, source=SOURCE)
 
 
 # ----------------------------------------------------------------------------- writing it out
@@ -306,8 +196,9 @@ def test_write_blind_review_hands_out_sheets_and_keeps_the_key_apart(tmp_path):
     )
     manifest = table[["image_name", "coral_id", "frame_w", "frame_h"]]
     preds = table[["image_name", "coral_id", "predicted_genus"]].assign(confidence=0.9)
+    manifest = manifest.assign(keep=True)
     review = build_blind_review(
-        preds, manifest, GENUS, None, n_pred=2, n_other=2, n_assaf=2, seed=1
+        preds, manifest, GENUS, n_pred=2, n_other=2, n_assaf=2, seed=1, source=SOURCE_SMALL
     )
 
     name = blind_review_name(GENUS, 1, "2026-10-12")
@@ -328,14 +219,14 @@ def test_write_blind_review_hands_out_sheets_and_keeps_the_key_apart(tmp_path):
     assert paths["analyst_pdf"].read_bytes().startswith(b"%PDF")
     sheet = pd.read_csv(paths["analyst_csv"], keep_default_na=False)
     assert sheet["key"].tolist() == review.sheet["key"].tolist()
-    assert "new_pred" not in sheet.columns and "selection" not in sheet.columns
+    assert "baseline_pred" not in sheet.columns and "selection" not in sheet.columns
     key, meta = read_blind_key(tmp_path / "keys", name)
     assert (
         meta["genus"] == GENUS and meta["name"] == name and meta["answer_column"] == "is_millepora"
     )
     pd.testing.assert_frame_equal(
-        key[["key", "selection", "new_pred"]],
-        review.key[["key", "selection", "new_pred"]],
+        key[["key", "selection", "baseline_pred"]],
+        review.key[["key", "selection", "baseline_pred"]],
         check_dtype=False,
     )
     # nothing is overwritten, and nothing is written when a target exists
@@ -354,6 +245,7 @@ def test_write_blind_review_hands_out_sheets_and_keeps_the_key_apart(tmp_path):
         {"key": list(answers), "is_millepora": list(answers.values()), "actual_genus": ""}
     )
     done = ingest_review(sheet_in, "is_millepora")
-    from_disk = score_blind_review(done, key, meta)
-    in_memory = score_blind_review(done, review.key, review.meta)
+    from_disk = score_blind_review(done, key, meta, current_source=SOURCE_SMALL)
+    in_memory = score_blind_review(done, review.key, review.meta, current_source=SOURCE_SMALL)
     assert from_disk.estimates == in_memory.estimates
+    assert meta["source"] == SOURCE_SMALL.to_dict()  # the key's meta file records the source

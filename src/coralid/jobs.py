@@ -27,7 +27,7 @@ from coralid.baseline import baseline_paths, load_baseline
 from coralid.batch import ResumableRun
 from coralid.config import Config, meta_path
 from coralid.evaluation import load_expert_set, load_legacy_predictions
-from coralid.genus_audit import BlindReview, build_blind_review, load_legacy_audit
+from coralid.genus_audit import BlindReview, build_blind_review
 from coralid.manifest import geometric_manifest, image_manifest, read_manifest, write_manifest
 from coralid.masks import AnnotationStore
 from coralid.probe import (
@@ -45,12 +45,12 @@ from coralid.reports import (
     write_probe_report,
 )
 from coralid.review_export import write_blind_review
+from coralid.review_source import baseline_source
 from coralid.zero_shot import load_embeddings
 
 logger = logging.getLogger(__name__)
 
 EXPERT_CSV = "assaf_expert_test_set.csv"  # in the run folder
-LEGACY_AUDIT = {"Millepora": "v2_pipeline/millepora_sharp_audit.csv"}  # in the run folder
 
 
 class JobError(RuntimeError):
@@ -165,7 +165,6 @@ def evaluate_baseline(
 def export_blind_review(
     cfg: Config,
     genus: str = "Millepora",
-    audit_csv: str | os.PathLike[str] | None = None,
     *,
     n_pred: int = 150,
     n_other: int = 150,
@@ -175,24 +174,23 @@ def export_blind_review(
 ) -> tuple[BlindReview, dict[str, Path]]:
     """Sample a blind review of `genus` from the baseline and write its sheets and hidden key.
 
-    Hand out `reviews/exports/`; keep `reviews/keys/` private. The old audit (default for
-    Millepora: `v2_pipeline/millepora_sharp_audit.csv`) excludes crops already judged and forces
-    the unsure ones back in. Files are new; an existing target is an error.
+    The crops are drawn only from the saved 20-genus baseline (`baseline_paths(cfg)`): before
+    sampling, its meta file must say label set `hard20` and the config's model and prompt set,
+    or `ReviewSourceError` is raised. The source (file, commit, creation time, model, prompt
+    set, label set) is recorded in the answer key's meta file. Hand out `reviews/exports/`;
+    keep `reviews/keys/` private. Files are new; an existing target is an error.
     """
-    predictions = load_baseline(cfg).predictions
-    if audit_csv is None and genus in LEGACY_AUDIT:
-        candidate = cfg.run_dir / LEGACY_AUDIT[genus]
-        audit_csv = candidate if candidate.exists() else None
-    audit = load_legacy_audit(audit_csv) if audit_csv else None
+    source = baseline_source(cfg)
+    predictions = pd.read_parquet(baseline_paths(cfg).predictions)
     review = build_blind_review(
         predictions,
         read_manifest(cfg.manifest_path),
         genus,
-        audit,
         n_pred=n_pred,
         n_other=n_other,
         n_assaf=n_assaf,
         seed=seed,
+        source=source,
     )
     files = write_blind_review(
         review,
