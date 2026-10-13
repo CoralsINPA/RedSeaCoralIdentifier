@@ -4,55 +4,51 @@ Identify the genus of individual corals in Red Sea reef photos. The pipeline fir
 
 ## Pipeline
 
-The logic lives in the tested `coralid` package (`src/coralid/`, built from the three original Colab notebooks and V2; see [`docs/organization_plan.md`](docs/organization_plan.md)). Five thin Colab notebooks drive it, and the same jobs run from a terminal as `python -m coralid ...`. The original notebooks are kept as frozen reference copies in `notebooks/legacy/` until one end-to-end run of the new ones has been confirmed.
+The logic lives in the tested `coralid` package (`src/coralid/`, built from the original Colab notebooks; see [`docs/organization_plan.md`](docs/organization_plan.md)). Four thin Colab notebooks drive the pipeline, and the same jobs run from a terminal as `python -m coralid ...`. The original notebooks are kept as frozen reference copies in `notebooks/legacy/` until one end-to-end run of the new ones has been confirmed.
 
 | Step | Notebook | What it does |
 |---|---|---|
 | 1. Segmentation and filters | `notebooks/01_segment_and_filter.ipynb` | Reports which photos still need a [CoralSCOP](https://github.com/zhengziqiang/CoralSCOP) mask JSON, checks the real CoralSCOP on a few photos against the saved masks, and loads the manifest (one row per mask, with the reason each rejected mask was dropped) and its filter funnel. |
-| 2. Embeddings | `notebooks/02_embeddings_explore.ipynb` | DINO embeddings of the kept crops (optional, GPU) and the exploration of them: t-SNE / UMAP maps colored by predicted genus, K-Means and HDBSCAN clusters, cluster galleries. Works on the baseline's BioCLIP features without a GPU. |
-| 3. Zero-shot classification | `notebooks/03_zero_shot.ipynb` | Classifies every kept crop into 20 Red Sea hard-coral genera with the fine-tuned BioCLIP (BioCLIP 2 and SigLIP 2 also supported), saves predictions and embeddings (the baseline), and reports on it: the expert test set, the genus mix against the survey, both by photo orientation. |
-| 4. Expert review and audits | `notebooks/04_expert_review_and_audits.ipynb` | The portrait-impact report, the old *Millepora* audit against the baseline, and the blind review sheet and its scoring (the sheet export is on hold). |
-| 5. Supervised probe | `notebooks/05_supervised_probe.ipynb` | A linear probe on the stored embeddings, trained on expert labels and reported on held-out photos only. A template until the larger expert set exists. |
+| 2. Zero-shot classification | `notebooks/02_zero_shot.ipynb` | Classifies every kept crop into 20 Red Sea hard-coral genera with the fine-tuned BioCLIP (BioCLIP 2 and SigLIP 2 also supported), saves predictions and embeddings (the baseline), and reports on it: the expert test set, the genus mix against the survey, both by photo orientation. |
+| 3. Expert review | `notebooks/03_expert_review.ipynb` | The portrait-impact report on the expert test set, and the blind review sheet of one genus (Millepora), drawn only from the 20-genus baseline, with its scoring (the sheet export is on hold). |
+| 4. Supervised probe | `notebooks/04_supervised_probe.ipynb` | A linear probe on the baseline's BioCLIP embeddings, trained on expert labels and reported on held-out photos only. A template until the larger expert set exists. |
+
+**Exploration (a separate direction, not part of the pipeline).** `notebooks/explore/embeddings.ipynb` embeds the kept crops with DINO (optional, GPU) and explores embeddings: t-SNE / UMAP maps colored by predicted genus, K-Means and HDBSCAN clusters, cluster galleries. It lives in the `coralid.explore` subpackage, which no pipeline module imports; see [`docs/exploration_embeddings.md`](docs/exploration_embeddings.md).
 
 Quality filters applied to masks: minimum area 25,000 px², aspect ratio at most 3, containment threshold 0.80, Laplacian sharpness at least 80. Source images are resized to the mask frame, whose long side is 2560 (2560 x 1920 for landscape photos, 1920 x 2560 for the 221 portrait ones).
 
 ## Quickstart for the team (Colab)
 
 1. **Get the data.** The shared Drive folder `CoralsMasking` must be in your My Drive (add a shortcut if it was shared with you), and Colab must be mounted with the Google account it is shared with.
-2. **Open a notebook.** Click its "Open in Colab" badge, at the top of the notebook on GitHub. Use a **GPU runtime** (Runtime > Change runtime type > T4) for 01 (the segmentation check), 03 and the DINO job of 02. 02 (on the BioCLIP features), 04 and 05 need no GPU.
+2. **Open a notebook.** Click its "Open in Colab" badge, at the top of the notebook on GitHub. Use a **GPU runtime** (Runtime > Change runtime type > T4) for 01 (the segmentation check) and 02. 03 and 04 need no GPU.
 3. **Run the first cell.** It clones this repository, installs `coralid` and mounts Drive. Its settings block (`DATA_ROOT`, `BRANCH`, `EXTRAS`) is the only place to edit. If it says to restart the runtime, do that and run the cell again.
 4. **Run the rest in order.** Each notebook opens with a table of what every step reads, what it writes and how long it takes. Nothing is overwritten: a result that exists is loaded, a long job resumes where it stopped, and every report goes into a new folder, so re-running is safe.
-5. **Go through the notebooks in this order: 01, 02, 03, 04, and 05 when labels exist.**
+5. **Go through the notebooks in this order: 01, 02, 03, and 04 when labels exist.**
 
 | Notebook | Needs | Produces on Drive (under `results_all/iou60_sta55_pts32/`) |
 |---|---|---|
 | 01 segment and filter | the photos, the mask JSONs, the CoralSCOP checkpoint | on the active run nothing but a scratch run `results_all/segcheck_*/` and `reports/segcheck_<date>/`; `manifest/manifest.parquet` for a new run |
-| 02 embeddings explore | the manifest; the baseline (from 03) for its BioCLIP features | `features/dinov2-s14__masked_square.npz` (optional DINO job), `reports/embeddings_<features>_<date>/` |
-| 03 zero shot | the manifest, the photos and mask JSONs | `predictions/finetuned-bioclip__taxonomy_v1__hard20__all.parquet`, `features/finetuned-bioclip__masked.npz`, `reports/baseline_*_<date>/` |
-| 04 expert review and audits | the baseline, the expert set, the old Millepora audit | `reports/portrait_impact_<date>/`; with the export on: `reviews/exports/` (hand out) and `reviews/keys/` (keep private); `reports/blind_score_*/` |
-| 05 supervised probe (when labels exist) | the baseline's embeddings and predictions, a labels table | `reports/probe_*_<date>/` |
+| 02 zero shot | the manifest, the photos and mask JSONs | `predictions/finetuned-bioclip__taxonomy_v1__hard20__all.parquet`, `features/finetuned-bioclip__masked.npz`, `reports/baseline_*_<date>/` |
+| 03 expert review | the baseline, the expert set | `reports/portrait_impact_<date>/`; with the export on: `reviews/exports/` (hand out) and `reviews/keys/` (keep private); `reports/blind_score_*/` |
+| 04 supervised probe (when labels exist) | the baseline's embeddings and predictions, a labels table | `reports/probe_*_<date>/` |
 
-On the active run the baseline files already exist, so 02 can explore its BioCLIP features straight away. For a new run, 03 has to write them first (or 02 runs its own DINO job), and 05 needs them too. Paste each notebook's printed tables back to whoever asked for the run.
+On the active run the baseline files already exist, so 02 loads them. For a new run, 02 writes them, and 04 needs them. Paste each notebook's printed tables back to whoever asked for the run.
 
-## Finding
-
-A *Millepora* check found that only 58.9% of the model's sharp, high-confidence (at least 0.85) Millepora predictions looked correct: 66 correct, 46 wrong and 17 uncertain, out of 129. The judgments were made by a non-expert analyst, not by the coral expert, with the model's answer visible, on the 24-genus V2 predictions. Treat the number as provisional.
-
-The extended V2 pipeline (24 genera, tiered review, Millepora audit inputs) is in `notebooks/legacy/CoralClassification_v2_Pipeline.ipynb`. It is the source of the 14,224-crop run.
+There is **no valid Millepora precision figure** yet. An earlier check, made on the predictions of a pipeline that is no longer used, is discarded; the blind review sheet (notebook 03) redoes it on the 20-genus baseline.
 
 ## Repository layout
 
 ```
-src/coralid/          Installable package: segmentation (CoralSCOP) and its check, masks, crops, filters, manifest and filter funnel, zero-shot scoring and the 20-genus baseline job, DINO embeddings, clustering and exploration, a linear probe, expert-set evaluation, review sheets and audits, plots, the Colab setup, and the `python -m coralid` command line
+src/coralid/          Installable package: segmentation (CoralSCOP) and its check, masks, crops, filters, manifest and filter funnel, zero-shot scoring and the 20-genus baseline job, a linear probe, expert-set evaluation, review sheets, plots, the Colab setup, and the `python -m coralid` command line. The subpackage `explore/` holds the exploration direction (DINO embeddings, clustering) that the pipeline does not use
 configs/              Run configuration (iou60_sta55_pts32.yaml) and the genus label set and prompts (genera.yaml)
 tests/                CPU-only tests on synthetic data (no data or GPU needed)
 notebooks/01_segment_and_filter.ipynb         Colab: segmentation status, the segmentation check, the manifest and its filter funnel
-notebooks/02_embeddings_explore.ipynb         Colab: DINO embeddings and the exploration of embeddings (maps, clusters, galleries)
-notebooks/03_zero_shot.ipynb                  Colab: the baseline job and its reports (expert set, genus mix, by photo orientation)
-notebooks/04_expert_review_and_audits.ipynb   Colab: portrait impact and the Millepora re-analysis (blind review sheets, on hold)
-notebooks/05_supervised_probe.ipynb           Colab: a linear probe on the embeddings, held-out report only
+notebooks/02_zero_shot.ipynb                  Colab: the baseline job and its reports (expert set, genus mix, by photo orientation)
+notebooks/03_expert_review.ipynb              Colab: portrait impact and the Millepora blind review (sheets on hold)
+notebooks/04_supervised_probe.ipynb           Colab: a linear probe on the baseline's embeddings, held-out report only
+notebooks/explore/embeddings.ipynb            Colab: DINO embeddings and the exploration of embeddings (not part of the pipeline)
 notebooks/parity_check.ipynb                  Colab: checks the package against the legacy notebooks (a one-time check)
-notebooks/legacy/     The original Colab notebooks and the V2 notebook, frozen as reference (to be deleted after one confirmed end-to-end run)
+notebooks/legacy/     The original Colab notebooks, frozen as reference (to be deleted after one confirmed end-to-end run)
 third_party/CoralSCOP Submodule: upstream CoralSCOP segmentation model
 docs/                 Onboarding guide, its errata, the organization plan, algorithm ideas, agent memory
 ```
@@ -68,7 +64,7 @@ git submodule update --init
 To work on the package (Python 3.10 or newer):
 
 ```bash
-pip install -e ".[dev]"      # add extras as needed: clip, dino, segment, cluster, probe, viz
+pip install -e ".[dev]"      # add extras as needed: clip, segment, probe, viz (dino, cluster: exploration only)
 ruff check . && ruff format --check . && pytest -q
 ```
 
@@ -80,7 +76,7 @@ Everything the notebooks do also runs from a terminal. For example the 20-genus 
 python -m coralid zero-shot --config configs/iou60_sta55_pts32.yaml
 ```
 
-It is resumable, never overwrites a file, and takes about 25 minutes for the 1,714 photos on a T4. The other commands (`segment`, `build-manifest`, `embed`, `evaluate`, `export-review`, `train-probe`) work the same way: see `python -m coralid --help`. `notebooks/` holds only the five notebooks and the one-time `parity_check.ipynb`; outputs are stripped before every commit (pre-commit with nbstripout).
+It is resumable, never overwrites a file, and takes about 25 minutes for the 1,714 photos on a T4. The other commands (`segment`, `build-manifest`, `evaluate`, `export-review`, `train-probe`, and `explore-embed` for the exploration direction) work the same way: see `python -m coralid --help`. `notebooks/` holds the four pipeline notebooks, `explore/embeddings.ipynb` and the one-time `parity_check.ipynb`; outputs are stripped before every commit (pre-commit with nbstripout).
 
 ## Data and model weights (not in this repo)
 
@@ -100,7 +96,7 @@ Root folder: [CoralsMasking](https://drive.google.com/drive/folders/1LtqWRm2vieT
 | Filtered mask JSONs | [`cleaned_jsons_filtered`](https://drive.google.com/drive/folders/1ATUrW-DLZMxGYio6N-9bqVuonFKkQZK4) |
 | Onboarding guide (Drive copy) | [PDF](https://drive.google.com/file/d/1gr2tnBhclsnh8s2oM49YKLWSYD9-VyGg/view) |
 
-Colab notebooks: [CoralMasking](https://colab.research.google.com/drive/1sS9aUIWFBk6EP54biw_vGc3n3oyw51H7), [WeakClassification](https://colab.research.google.com/drive/1hCcbbjEHMtZQEm0TXiYwU0q-E_ZnIX4K), [Millepora_Analysis](https://colab.research.google.com/drive/18TE7K8VihAIzcgaQ1ULCMBTlHpqtPACS).
+Colab notebooks: [CoralMasking](https://colab.research.google.com/drive/1sS9aUIWFBk6EP54biw_vGc3n3oyw51H7), [WeakClassification](https://colab.research.google.com/drive/1hCcbbjEHMtZQEm0TXiYwU0q-E_ZnIX4K).
 
 ### Inside the active run folder
 
@@ -110,7 +106,7 @@ Colab notebooks: [CoralMasking](https://colab.research.google.com/drive/1sS9aUIW
 | `cleaned_images_crops/` | Cleaned crops (contents not inspected) |
 | `cluster_previews/`, `visualizations/` | Embedding and cluster plots |
 | `coral_dinoV2_encodings.csv` (181 MB), `coral_dinoV2_encodings_MASKS.csv` (489 MB) | DINOv2 embeddings, whole crop and masked crop |
-| [`v2_pipeline/`](https://drive.google.com/drive/folders/1pJq-dvipNiprBiQRXLAqH_iXTbEcjuNG) | Expanded weak labels (`v2_weak_labels_expanded.csv`, `v2_embeddings.npz`) and the Millepora audit: `millepora_sharp_audit` sheet, review PDFs, `expert_review_for_assaf.csv`, and [`expert_review_images/`](https://drive.google.com/drive/folders/1QejgDnzmMVtoacZ5agqIEwe39UctKeG2) |
+| `v2_pipeline/` | Not used. The outputs of a pipeline that has been excluded; nothing reads them. |
 
 ### Other folders (lower priority)
 

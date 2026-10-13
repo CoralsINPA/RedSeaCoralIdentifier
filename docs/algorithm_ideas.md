@@ -57,12 +57,11 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 **1.2 Re-review the expert crops from portrait photos.**
 - Assaf saw mis-cut crops for these: 10 rows, listed in `<run>/reports/portrait_impact_2026-10-12/expert_portrait_rows.csv`. Re-show them, correctly cut.
 - **7 of the 10 are "unidentifiable"**, against 9 of 67 on landscape photos (one-sided Fisher p = 0.0004). Two of them got the same legacy probability vector, most likely from an empty crop. The bad cut, not blur, explains these 7.
-- The 3 portrait rows of the old Millepora audit need the same re-review.
 
 **1.3 Calibrate the non-expert analyst against Assaf.**
 - About 40 crops labeled by both people.
 - If they agree at roughly 90% or better on a genus or task, the analyst can do that labeling and save Assaf's time.
-- The Millepora re-check (Stage B) is the first instance.
+- The blind Millepora review (idea 10) is the first instance.
 
 **1.4 Standard report for every experiment.**
 - Accuracy and per-genus precision and recall, with intervals.
@@ -113,19 +112,18 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 ## 3. A reject / "other" outcome
 
 **Evidence.**
-- 5 of 59 identifiable expert crops are soft corals (Cladiella, Litophyton, Sinularia).
-- V2 put 11.7% of crops into soft-coral classes.
+- 5 of 59 identifiable expert crops are soft corals (Cladiella 3, Litophyton 1, Sinularia 1).
 - With only 20 classes they land on Acropora, Porites or Millepora. Acropora precision would rise from 56% to about 83% if they were rejected.
 
 **Ideas.**
 - **Confidence or margin threshold:** below it, output "other / uncertain". Needs calibration first (idea 5).
-- **Soft-coral prompts as distractors.** Score against the 20 hard genera plus the 4 soft-coral prompts (`soft4_taxonomy` is already in `configs/genera.yaml`). If a soft coral wins, output "other". The output stays 20 hard genera.
+- **Soft-coral prompts as distractors (prompts to write and compare; no such prompt set exists yet).** Score against the 20 hard genera plus prompts for the soft corals seen in the expert set (Cladiella, Sinularia, Litophyton). If a soft coral wins, output "other". The output stays 20 hard genera.
 - **"Other" as a class in the linear probe** (idea 4), trained on soft-coral and non-coral crops.
 - **Open-set check:** distance to the nearest genus prototype in embedding space.
 
 ## 4. Supervised linear probe on the embeddings
 
-**What:** a logistic regression (or similar) on the saved 512-d BioCLIP-FT embeddings. This is V2 Phase 2, done right.
+**What:** a logistic regression (or similar) on the saved 512-d BioCLIP-FT embeddings. `coralid.probe` implements it (notebook `04_supervised_probe`).
 
 **How (Stage C's `probe.py` provides it):**
 - labels joined by `(image_name, coral_id)`;
@@ -161,7 +159,7 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
   - **Ask Assaf:** merge them? Which name for Red Sea specimens?
 - **Group the massive / merulinid complex.** Dipsastraea, Favites, Goniastrea, Favia, Leptastrea, Cyphastrea and Acanthastrea/Lobophyllia cause 13 of 23 errors.
   - Option: hierarchical output. A group label when the genus is uncertain, the genus when confident. Ecologists may accept the group level.
-- **Taxonomy prompt version.** `taxonomy_v1` (older families, e.g. Faviidae) vs `taxonomy_v2` (Merulinidae, incertae sedis). The best choice depends on BioCLIP's training text and must be measured (idea 8).
+- **Taxonomy prompt version (a prompt set to write and compare; it does not exist yet).** `taxonomy_v1` files the genera under older families (e.g. Faviidae). A version that follows the current classification (Merulinidae, incertae sedis) would be a new, versioned prompt set in `configs/genera.yaml`. The best choice depends on BioCLIP's training text and must be measured (idea 8).
 
 ## 7. Resolution and crop design
 
@@ -182,7 +180,7 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
   - two of the six used an older 10-genus label set;
   - none was scored against the expert set.
 - **Redo the comparison on the new baseline's crops, scored with the standard report (1.4):**
-  - prompt formats: taxonomy v1 / v2, descriptive, common, ensemble;
+  - prompt formats: `taxonomy_v1` (and any new taxonomy set from idea 6), descriptive, common, ensemble;
   - backbones: BioCLIP-FT, BioCLIP-2, SigLIP-2 (with its own logit scale and bias, not ×100 softmax).
 - Every run records its configuration in a `*.meta.json` sidecar, so results stay comparable.
 
@@ -206,12 +204,15 @@ Minor: SAM's bbox is one pixel short (`w = right - left` on inclusive indices); 
 
 ## 10. Millepora
 
-- **Redo the check on the new baseline,** as designed in Stage B:
+- **There is no valid Millepora precision figure.** An earlier check was made on the predictions of a pipeline that is no longer used, by a non-expert who saw the model's answer; it is discarded and no number from it is evidence.
+- **The blind review redoes it on the 20-genus baseline** (notebook `03_expert_review`, on hold, `coralid.genus_audit`):
+  - drawn only from `<run>/predictions/finetuned-bioclip__taxonomy_v1__hard20__all.parquet`; the export refuses unless its meta file says label set `hard20` and the config's model and prompt set, and the source is recorded in the answer key (scoring stops if the baseline was made again);
   - blind and mixed with non-Millepora crops;
   - sampled across confidence levels;
   - `actual_genus` recorded for every "no";
-  - about 40 crops double-labeled by Assaf.
-- The old 58.9% figure is a provisional non-expert estimate on V2's 24-genus predictions.
-  - Restricted to the 126 landscape rows, where the crops were cut correctly, it is 66 yes / 44 no / 16 unsure: **60.0% of the decided (95% 51-69%)**.
-  - The 3 portrait rows were judged on mis-cut crops.
-- **Likely confusers to watch:** Echinopora, Seriatopora, Pavona, and soft corals (Sinularia was a frequent runner-up in V2). With the 20-genus label set and no reject option, soft corals may land on Millepora more often.
+  - about 40 crops double-labeled by Assaf, to measure how well the analyst agrees with him.
+- **Likely confusers to watch:** Echinopora, Seriatopora, Pavona, and the soft corals of the expert set (Cladiella, Sinularia, Litophyton). With the 20-genus label set and no reject option, soft corals may land on Millepora.
+
+## 11. Exploring embeddings
+
+Embeddings and clustering (DINO features, K-Means, HDBSCAN, maps) are a separate direction that the pipeline never depends on: see [`exploration_embeddings.md`](exploration_embeddings.md).

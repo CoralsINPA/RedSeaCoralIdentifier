@@ -4,6 +4,7 @@ Snapshot of the claude.ai project memory entry "Coral genus classification for t
 
 ## Notes (added 2026-10-11)
 
+- **V2 and its Millepora audit are excluded (2026-10-13).** The V2 pipeline (24 genera) and the Millepora audit made on its predictions are no longer a reference; numbers below that come from them (for example the 58.9% Millepora figure, V2's Pavona share or its soft-coral share) are history, not evidence. The original text is kept as it was. See `docs/agent_memory/sessions/2026-10-13_detach_exploration_remove_v2.md`.
 - **Overall accuracy.** "~59% accuracy (38 correct, 26 wrong, 16 unidentifiable)" counts the original 80-crop review. The transcribed 78-crop CSV gives 39/62 = 62.9%. If you leave out the 5 soft corals, which weren't among v1's 20 classes (the rule in `CLAUDE.md`), it's 39/57 = 68.4%. See `assaf_review_confusion_matrix.md`.
 - **Millepora may not be reliable.** It is listed below as handled reliably. But the Millepora check finished on 2026-09-15 (`Millepora_Analysis.ipynb`) judged only 58.9% of the sharp, confidence ≥ 0.85 V2 predictions correct. The judging was done by a non-expert analyst, not Assaf, so it is provisional. See `README.md`.
 - **Pavona over-prediction.** "Pavona overprediction worsened significantly" fits what I measured: 13.7% of v1 predictions (842-crop sample) and 17.6% of V2 hard-coral predictions (all 14,224 crops), against 0.4% in the survey. The two runs used different crop sets, though, so the size of the change isn't pinned down.

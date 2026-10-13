@@ -1,5 +1,10 @@
 # Code organization plan
 
+> **Note (2026-10-13).** This plan is kept as written (a historical record of the refactor). Three things changed after it:
+> 1. **V2 is no longer a reference.** The 24-genus V2 pipeline, its outputs and the Millepora audit made on them are excluded; where this plan cites V2 cells or numbers, read them as history. The code and the current docs refer only to `coralid`.
+> 2. **The notebooks were renumbered.** The pipeline notebooks are `01_segment_and_filter`, `02_zero_shot`, `03_expert_review` and `04_supervised_probe`; the old `02_embeddings_explore` is now `notebooks/explore/embeddings.ipynb`.
+> 3. **Exploration is a separate direction.** DINO embeddings and clustering live in the `coralid.explore` subpackage, which the pipeline does not import (`docs/exploration_embeddings.md`). The `embed` command became `explore-embed` and its config section `explore`.
+
 Status: proposal only. Nothing has been changed yet.
 
 Sources read in full: `docs/Coral_Pipeline_Onboarding_Guide.pdf`, the three notebooks in `notebooks/`, and `CoralClassification_v2_Pipeline.ipynb`. The v2 notebook is on Drive only, and it produced both the 14,224-crop run and the tiered labels that the Millepora audit uses. I also checked the CoralSCOP submodule, one source photo and the file listings in the Drive folders.

@@ -8,6 +8,7 @@ Results of Assaf's expert review of 78 crops from the v1 pipeline (20 hard gener
 
 ## Notes (updated 2026-10-11)
 
+- **V2 and its Millepora audit are excluded (2026-10-13).** The V2 pipeline (24 genera) and the Millepora audit made on its predictions are no longer a reference; numbers below that come from them (for example the 58.9% Millepora figure, V2's Pavona share or its soft-coral share) are history, not evidence. The original text is kept as it was. See `docs/agent_memory/sessions/2026-10-13_detach_exploration_remove_v2.md`.
 - **Check against the real file (2026-10-11, Stage A2): not done yet.** The agent could not read `assaf_expert_test_set.csv` (the Drive tool only returns contents inline). The matrix below is now data in the tests (`tests/assaf_matrix.py`): a file shaped like the real one, built from it, goes through `coralid.evaluation` and gives 78 rows, 57 in set, 5 soft corals, 16 unidentifiable, 39 correct and every printed recall and precision. Whether the **real file** equals the matrix is Check D of `notebooks/parity_check.ipynb`, which prints PASS or FAIL for each cell. Add the result here when the user pastes it back.
 
 - **The user's matrix is internally consistent; the snapshot's table was not.** Recomputing the matrix below from its cells reproduces every printed recall and precision value. The table in the original snapshot had three transcription errors, so it is kept only for history (collapsed at the end):

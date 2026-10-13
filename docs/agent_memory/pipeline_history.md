@@ -4,6 +4,7 @@ Snapshot of the claude.ai project memory entry "Pipeline History And Learnings" 
 
 ## Notes (added 2026-10-11)
 
+- **V2 and its Millepora audit are excluded (2026-10-13).** The V2 pipeline (24 genera) and the Millepora audit made on its predictions are no longer a reference; numbers below that come from them (for example the 58.9% Millepora figure, V2's Pavona share or its soft-coral share) are history, not evidence. The original text is kept as it was. See `docs/agent_memory/sessions/2026-10-13_detach_exploration_remove_v2.md`.
 - **The evidence that Iteration 1 "failed entirely" is partly confounded.**
   - The cluster preview galleries (`CoralMasking.ipynb` cells 14 and 22) display crops cut from the wrong part of each photo. The masks are in a 2560×1920 frame, but those cells crop the full-size photo (e.g. 3648×2736) without resizing it first.
   - The HDBSCAN run used `coral_dinoV3_encodings.csv`, and no notebook I read writes that file.
