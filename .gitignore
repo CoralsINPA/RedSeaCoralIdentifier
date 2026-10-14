@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Notebooks and Colab
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Data and model weights stay on the shared Drive, never in the repo
+data/
+*.npz
+*.parquet
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/

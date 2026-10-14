@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coralid"
+dynamic = ["version"]
+description = "Genus-level coral identification for Red Sea reef photos: CoralSCOP segmentation plus zero-shot CLIP-family classification."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pyarrow>=14",
+    "opencv-python-headless>=4.8,<5",
+    "pycocotools>=2.0.7",
+    "pyyaml>=6.0",
+    "Pillow>=10.0",
+    "tqdm>=4.66",
+]
+
+[project.scripts]
+coralid = "coralid.cli:main"
+
+# torch is deliberately not pinned: use whatever the runtime (Colab) already ships.
+[project.optional-dependencies]
+clip = [
+    "torch",
+    "torchvision",
+    "open_clip_torch>=3.3,<4",
+    "transformers>=4.50",
+]
+# Exploration extras (dino, cluster): for coralid.explore only. The pipeline and the probe never
+# need them.
+dino = [
+    "torch",
+    "torchvision",
+    "transformers",
+]
+segment = [
+    "torch",
+    "torchvision",
+]
+cluster = [
+    "scikit-learn",
+    "umap-learn",
+    "hdbscan",
+]
+probe = [
+    "scikit-learn",
+]
+viz = [
+    "matplotlib",
+]
+dev = [
+    "pytest",
+    "ruff==0.17.0",
+    "pre-commit",
+    "nbstripout",
+    "scikit-learn",
+    "matplotlib",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "coralid.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "."]
+# The legacy notebooks are frozen reference evidence (Colab magics, copy-pasted cells).
+# The parity notebook holds one cell copied verbatim from a legacy notebook; formatting or
+# linting it would change the legacy text, so the whole notebook is left alone.
+extend-exclude = ["notebooks/legacy", "notebooks/parity_check.ipynb", "third_party"]
+force-exclude = true  # pre-commit passes file names; the excludes above must still apply
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["coralid"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+    # pycocotools (a C extension) trips a numpy 2 copy-keyword deprecation inside mask.decode.
+    "ignore:__array__ implementation doesn't accept a copy keyword:DeprecationWarning",
+]

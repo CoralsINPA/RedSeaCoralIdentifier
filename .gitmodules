@@ -1,3 +1,6 @@
 [submodule "third_party/CoralSCOP"]
 	path = third_party/CoralSCOP
 	url = https://github.com/zhengziqiang/CoralSCOP
+	# The vendored code is imported, which leaves __pycache__ in it: that is not a change.
+	# (Edited or new tracked files in it still show up.)
+	ignore = untracked
