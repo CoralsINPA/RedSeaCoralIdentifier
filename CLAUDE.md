@@ -96,6 +96,8 @@ Relevant:
 - `data_all` (id `1oj6WQ9jNW6vUGe18PyvT5eniaASBGh68`): all source photos. `data_50` (id `1s7ZONaUeHH0BAhnH0UBH8l67X8HrBUq5`): 50-image subset.
 - Colab: CoralMasking https://colab.research.google.com/drive/1sS9aUIWFBk6EP54biw_vGc3n3oyw51H7, WeakClassification https://colab.research.google.com/drive/1hCcbbjEHMtZQEm0TXiYwU0q-E_ZnIX4K, Millepora_Analysis https://colab.research.google.com/drive/18TE7K8VihAIzcgaQ1ULCMBTlHpqtPACS.
 
+Archive (2026-10-14): outdated files were moved, not deleted, into `results_all/iou60_sta55_pts32/archive/` (`embedding_csvs_old/`, `zero_shot_experiments_old/`, `clustering_old/`, `defective_wrong_crops/` = `cleaned_images_crops`, `excluded_v2_pipeline/` = `v2_pipeline`) and the root `archive/` (`cleaned_jsons_filtered`). Each has a `README_archive.txt`. Items owned by the original personal account could not be moved: the two `coral_dinoV2_encodings*.csv`, `cluster_summary*`, `coral_results.csv` and `visualizations/` in the run folder; `results_50/`, `cropped_masks/`, `coral_dino_encodings.csv` and `Coral_Segmentation_Comparison.jpg` in the root. That account also owns `data_all/`, `data_50/`, `results_all/` and `json/`; transferring ownership to the team account is advised.
+
 Ignore:
 - `v2_pipeline/` (id `1pJq-dvipNiprBiQRXLAqH_iXTbEcjuNG`) in the active run folder: the excluded V2 pipeline's outputs (its predictions, embeddings, review files and the old Millepora audit). Nothing reads them; do not use them as a reference.
 - `external_libs/`: vendored pip packages (tqdm, pyparsing, tabulate, ...).

@@ -158,11 +158,9 @@ third_party/CoralSCOP           the segmentation model's code
 | `ground_truth_genus_counts.csv` | The ecologists' survey counts per genus |
 | `CoralSCOP/checkpoints/vit_b_coralscop.pth` | The segmentation model's weights |
 
-**Ignore:**
-- `v2_pipeline/` (an excluded earlier pipeline);
-- the old `coral_dino*` CSV files;
-- `cleaned_images_crops/` and `cleaned_jsons_filtered/` (cut from the wrong place);
-- `results_50/`, `external_libs/`, `cropped_masks/`.
+**Archives:** `archive/` folders, in the root and in the active run, hold outdated files: old embedding CSVs, early zero-shot experiments, old clustering output, defective crops, the excluded V2 pipeline. Each has a `README_archive.txt`. The code reads none of them.
+
+**Ignore:** `external_libs/`, `results_50/` and `cropped_masks/` in the root, and a few old files in the run folder that still wait to be archived: `coral_dinoV2_encodings*.csv`, `cluster_summary*`, `coral_results.csv`, `visualizations/`.
 
 ---
 
