@@ -89,3 +89,8 @@
   1. **A reject / "other" outcome is essential (idea 3)** and has ready examples: substrate (cluster 8 and probably the other Pavona-led clusters) and giant clams (cluster 14).
   2. **Cluster-guided labeling works here:** clusters 4 and 19 look mostly like one genus. Assaf can confirm a cluster from a grid instead of labeling crop by crop, which feeds the probe cheaply.
   3. **Pavona needs no prior correction if the substrate is rejected first.** Re-measure its share after the reject step.
+- **Cluster 5 (902 crops, Acropora 74%, confidence 0.88): branching and corymbose colonies seen from above**, all clearly coral.
+  - The classifier is confident on the Acropora-looking ones (1.0).
+  - It splits the rest into Stylophora, Seriatopora and Pocillopora at low confidence (0.3-0.6).
+  - DINO groups by growth form (branch tips); the genus split inside needs the expert.
+  - A few crops are blurred (e.g. IMG_4150#4, IMG_4089#9).
