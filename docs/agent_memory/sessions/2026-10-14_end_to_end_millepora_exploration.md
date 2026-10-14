@@ -58,3 +58,18 @@
 - **Reading:** with these settings, made for 44,211 masks, HDBSCAN only finds the branching corals (Acropora / Pocillopora) as a separate dense group. Everything else is one continuum at low confidence. The silhouette is high only because there are just two clusters, so it says little.
 - **K-Means (50 clusters) is the more useful view.** To use HDBSCAN, lower `HDBSCAN_MIN_CLUSTER` to about 50 and `HDBSCAN_MIN_SAMPLES` to about 10.
 - **Worth a look:** the tight isolated noise blob (65 crops, mostly Lobophyllia). It may be near-duplicate crops of one colony across overlapping photos, or an artifact.
+
+## Addendum: DinoVdeau features (the independent direction)
+- **Embedding job:** `explore-embed --model dinovdeau-l` ran on a T4 in Colab: 16,080 crops × 1024 → `features/dinovdeau-l__masked_square.npz`. It resumed once after a CPU-only runtime was detected. Report: `reports/embeddings_dinovdeau-l__masked_square_2026-10-14/`.
+- **K-Means, 20 clusters:** cosine silhouette 0.11 and Davies-Bouldin 2.99, so the cluster structure is weak overall.
+  - **Only one pure cluster:** cluster 5 (902 crops), Acropora 74%, confidence 0.88.
+  - **Brain-coral clusters:** 4 and 19 (1,638 crops), Platygyra 44-51% plus Favia 27-34%. The classifier splits a single DINO look into Platygyra and Favia, which may explain part of the Favia over-prediction (1.6× the survey) and the Platygyra shortfall (0.33×).
+  - **Branching clusters:** 2, 7, 13 and 16, mixing Acropora, Stylophora and Millepora.
+  - **Seven clusters led by Pavona** (0, 8, 9, 10, 11, 12, 15; about 6,700 crops, 42%): Pavona at 16-37%, mean confidence 0.30-0.48. The low-confidence mass is a large part of the data.
+  - **Cluster 14:** 65 crops, Lobophyllia 54%.
+- **HDBSCAN (still the legacy 500 / 50 settings):** 3 clusters, no noise.
+  - Brain-coral group: 1,858 crops (Platygyra 45%, Favia 27%).
+  - Lobophyllia-led blob: 71 crops.
+  - Everything else: 14,151 crops.
+- **The same Lobophyllia-led blob of about 65-71 crops appears in both BioCLIP and DinoVdeau,** two independent models. That is about half of all Lobophyllia predictions (146) in one tight group. Likely near-duplicate crops (one colony across overlapping photos) or one repeated object. Check its image names in `crops.parquet` and the gallery: duplicates would inflate counts and leak between training and test folds in the probe.
+- **Reading:** an independent model agrees with the classifier on growth forms (branching, brain, Acropora), not on genera within them. The Pavona-led low-confidence mass is real structure in both feature spaces.
