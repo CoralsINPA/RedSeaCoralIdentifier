@@ -45,3 +45,16 @@
   - the optional `sharpness_crop = "bbox"` setting;
   - the Drive cleanup of `cleaned_images_crops/` and `cleaned_jsons_filtered/`.
 - **Then the algorithm phase,** starting from `docs/algorithm_ideas.md`.
+
+## Addendum: HDBSCAN on the BioCLIP features (legacy settings: min_cluster_size 500, min_samples 50)
+- **Result:** 2 clusters and 65 noise crops (0.4%); silhouette 0.38, Davies-Bouldin 0.67.
+
+  | Cluster | Crops | Top genus | Second | Mean confidence |
+  |---|---|---|---|---|
+  | 0 | 1,164 (7%) | Acropora 86% | Pocillopora 14% | 0.98 |
+  | 1 | 14,851 (92%) | Pavona 16% | Favia 10% | 0.46 |
+  | noise | 65 | Lobophyllia 60% | Dipsastraea 17% | 0.45 |
+
+- **Reading:** with these settings, made for 44,211 masks, HDBSCAN only finds the branching corals (Acropora / Pocillopora) as a separate dense group. Everything else is one continuum at low confidence. The silhouette is high only because there are just two clusters, so it says little.
+- **K-Means (50 clusters) is the more useful view.** To use HDBSCAN, lower `HDBSCAN_MIN_CLUSTER` to about 50 and `HDBSCAN_MIN_SAMPLES` to about 10.
+- **Worth a look:** the tight isolated noise blob (65 crops, mostly Lobophyllia). It may be near-duplicate crops of one colony across overlapping photos, or an artifact.
