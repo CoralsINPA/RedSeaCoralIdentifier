@@ -73,3 +73,19 @@
   - Everything else: 14,151 crops.
 - **The same Lobophyllia-led blob of about 65-71 crops appears in both BioCLIP and DinoVdeau,** two independent models. That is about half of all Lobophyllia predictions (146) in one tight group. Likely near-duplicate crops (one colony across overlapping photos) or one repeated object. Check its image names in `crops.parquet` and the gallery: duplicates would inflate counts and leak between training and test folds in the probe.
 - **Reading:** an independent model agrees with the classifier on growth forms (branching, brain, Acropora), not on genera within them. The Pavona-led low-confidence mass is real structure in both feature spaces.
+
+## Addendum: what the DinoVdeau clusters contain (user's crop grids, 12 random crops each)
+- **Cluster 14 (65 crops): giant clam (Tridacna) mantles, not coral.** The wavy, iridescent blue and green mantle edges come from many different photos, so these are not duplicates. The classifier calls them Lobophyllia, Dipsastraea, Favia, Cyphastrea or Acanthastrea at low confidence. This is about half of all Lobophyllia predictions (146), so the Lobophyllia count is inflated by clams. **First concrete non-coral class for a reject / "other" outcome.**
+- **Cluster 8 (1,112 crops, Pavona-led, mean confidence 0.30): bare substrate.** Pale, featureless rock, dead coral, rubble or encrusted surfaces; no corallite structure. Labeled Pavona, Leptastrea, Favia, Montipora or Cyphastrea at 0.12-0.33 confidence. **This is direct visual evidence that the Pavona over-prediction (15.1% vs 0.44% in the survey) is largely non-coral substrate.** The other Pavona-led clusters (0, 9, 10, 11, 12, 15; about 5,500 more crops) still need a look.
+- **Clusters 4 (649) and 19 (989): meandroid brain corals.** They look Platygyra-like; a few could be other meandroid genera (to confirm with Assaf).
+  - Many get low confidence (0.15-0.32), or another label (Favia, Echinopora, Pavona, Acropora), even when the pattern is clear.
+  - This explains much of the Platygyra shortfall (0.33× the survey) and part of the Favia excess.
+  - Cluster 19 also holds elongated or ribbon-like pieces of brain colonies.
+- **Crop quality seen in passing:**
+  - Many crops are colonies cut by the photo edge (a straight black side in the square crop).
+  - Some are clearly blurred (e.g. IMG_7197#3, IMG_4343#2).
+  - Both are inputs to the crop-quality gate (idea 2).
+- **Consequences for the algorithm plan:**
+  1. **A reject / "other" outcome is essential (idea 3)** and has ready examples: substrate (cluster 8 and probably the other Pavona-led clusters) and giant clams (cluster 14).
+  2. **Cluster-guided labeling works here:** clusters 4 and 19 look mostly like one genus. Assaf can confirm a cluster from a grid instead of labeling crop by crop, which feeds the probe cheaply.
+  3. **Pavona needs no prior correction if the substrate is rejected first.** Re-measure its share after the reject step.
