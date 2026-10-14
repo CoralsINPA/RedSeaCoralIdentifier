@@ -37,8 +37,7 @@ Improving this is the current work (section 9).
 **Segmentation: "where is each coral?"**
 A model called **SAM** (Segment Anything, by Meta) draws an outline (a **mask**) around every object in a photo. We use **CoralSCOP**, a version of SAM retrained on coral photos. Each mask is stored as a compact code (an "RLE") in a JSON file, one file per photo.
 
-![A reef photo with its CoralSCOP masks drawn on top, colored by whether each mask was kept or why it was dropped](docs/images/01_mask_overlay.png)
-*One photo after segmentation (notebook 01). Each colored outline is one mask; the color says whether the filters kept it or why they dropped it.*
+*To see it:* run notebook 01; its last cell draws one photo with every mask outlined, colored by whether the filters kept it or why they dropped it.
 
 **Crop:** the part of the photo inside one mask. Everything outside the mask is painted black, so the model sees only the coral.
 
@@ -50,8 +49,7 @@ A model called **SAM** (Segment Anything, by Meta) draws an outline (a **mask**)
 
 The result is the **manifest**, a table with one row per mask, saying whether it was kept and, if not, why.
 
-![Bar chart of how many masks remain after each filter, for landscape and portrait photos](docs/images/02_filter_funnel.png)
-*The filter funnel (notebook 01): 44,211 masks go in, 16,080 crops come out. The size filter removes the most.*
+*To see it:* notebook 01 also draws the filter funnel: 44,211 masks go in, 16,080 crops come out, and the size filter removes the most.
 
 **Embedding:** a neural network turns an image into a list of numbers, for example 512 of them. Similar-looking images get similar lists. Think of it as coordinates of the image in a "space of appearances". Most of what we do happens on these numbers, not on the pixels.
 
@@ -59,8 +57,7 @@ The result is the **manifest**, a table with one row per mask, saying whether it
 We use **BioCLIP**, a model trained on millions of biology images together with their text descriptions (we use a version fine-tuned on reef images by the ReefNet project). It can embed both an image and a sentence such as "Animalia Cnidaria Anthozoa Scleractinia Acroporidae Acropora". For each crop we compare its embedding with the embedding of each of the 20 genus descriptions and pick the closest. This is "zero-shot" because it never saw our labeled crops.
 - **Confidence:** a number from 0 to 1 that says how sure the model is. It is useful for ranking crops, but it isn't a calibrated probability.
 
-![A page of coral crops, each with the genus the model predicted and its confidence](docs/images/03_predicted_crops.png)
-*What the classifier's output looks like: crops (outside the mask painted black) with the predicted genus and confidence (from notebook 05, Millepora).*
+*To see it:* [`millepora_by_band.pdf`](https://drive.google.com/file/d/1R2Mg0DLyn4evaTBYuFVpXHRtNkW38t-q/view) on Drive shows crops (outside the mask painted black) with the predicted genus and confidence.
 
 **Expert evaluation:** Assaf labeled 77 crops by hand. We compare the model's answer with his.
 - **Accuracy** is the share it got right.
@@ -71,11 +68,7 @@ We use **BioCLIP**, a model trained on millions of biology images together with 
 
 **Clustering (exploration):** group crops whose embeddings are close, without using any labels (methods: K-Means, HDBSCAN). We draw the groups as 2-D maps with t-SNE and UMAP, which squash many numbers into 2 for plotting. On 2026-10-14 the clusters, computed with an independent reef model called **DinoVdeau**, showed something important: the model's biggest mistakes are bare rock labeled "Pavona" and giant clams labeled "Lobophyllia". See `docs/clustering_results.md`.
 
-![UMAP map of all crops, one dot per crop, colored by K-Means cluster](docs/images/04_umap_clusters.png)
-*Each dot is one crop, placed by its DinoVdeau embedding; nearby dots look alike. Colors are the 20 K-Means clusters (exploration notebook).*
-
-![Grids of example crops from chosen clusters: bare substrate, giant clams, brain corals, branching corals](docs/images/05_cluster_examples.png)
-*Sample crops from single clusters. A cluster that is all bare rock, yet called "Pavona" by the classifier, is how the biggest error was found.*
+*To see it:* the [DinoVdeau report folder](https://drive.google.com/drive/folders/1RvzVFn-s-dssqzZ4Fss4qDLJIHU3JDpl) on Drive has the UMAP maps (`maps.png`, `kmeans_maps.png`: one dot per crop, nearby dots look alike) and `inspected_clusters_14-8-4-19-5.pdf`, sample crops of single clusters. The bare-rock cluster called "Pavona" is how the biggest error was found.
 
 ---
 
