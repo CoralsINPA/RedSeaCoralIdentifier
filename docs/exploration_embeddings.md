@@ -39,3 +39,11 @@ python -m coralid explore-embed --config configs/iou60_sta55_pts32.yaml        #
 ```
 
 or open `notebooks/explore/embeddings.ipynb` in Colab (about 15-25 minutes on a CPU on the BioCLIP features; estimates, not measured). Reports go to `reports/embeddings_<features>_<date>/` in a new folder every time.
+
+## First results (2026-10-14)
+On the BioCLIP features of the 16,080 kept crops (6,000 random, UMAP and t-SNE):
+- **Distinctive genera form clean islands:** Acropora, Porites, Stylophora/Seriatopora, Platygyra, Millepora, Pocillopora.
+- **Pavona sits in large low-confidence regions** (baseline confidence mostly below 0.2), mixed with the massive genera. It looks like the model's default for ambiguous crops.
+- **Coloring by predicted genus is circular,** since the predictions come from these same embeddings. Judge clusters from the gallery.
+
+Details are in `docs/agent_memory/sessions/2026-10-14_end_to_end_millepora_exploration.md`.

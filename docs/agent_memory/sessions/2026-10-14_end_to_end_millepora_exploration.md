@@ -1,0 +1,47 @@
+# 2026-10-14: End-to-end check, the new Millepora notebook, and the first look at the embeddings
+
+## What was done
+1. **End-to-end run of the reorganized notebooks in Colab (passed).**
+   - **`01_segment_and_filter`:** the segmentation check is a PASS. Five photos, one of them portrait (IMG_4484), were re-segmented into `results_all/segcheck_iou60_sta55_pts32/`. All 109 saved masks were found again (51 of 51 large), with identical counts and frames and a mean IoU of 1.000. The filter funnel matches the record: 44,211 → 19,457 (area) → 18,945 (aspect) → 16,197 (containment) → 16,080 kept. Details and the overlay observations are in `2026-10-14_segcheck_and_thresholds.md`.
+   - **`02_zero_shot`:** it loaded the saved baseline in seconds (never overwrites, so no recompute). Its new report `reports/baseline_finetuned-bioclip__taxonomy_v1__hard20__all_2026-10-14/expert_paired.csv` is identical to the 2026-10-12 one: landscape 34/51 = 66.7% with 0 predictions changed; portrait 0/3 with 7 of 10 changed (the portrait fix). A full re-run is not needed: nothing that affects predictions changed.
+   - **Conclusion:** the organization is verified on real data.
+2. **The thresholds:** the conclusions are recorded in `2026-10-14_segcheck_and_thresholds.md`. In short, set blur and size from Assaf's labels (after fixing the blur measure), keep containment, and change nothing before there are labels.
+3. **New `notebooks/05_millepora.ipynb` (commit `432847f`).**
+   - It is the Millepora analysis on the **correct predictions**, the 20-genus baseline. It stops unless `review_source.baseline_source(cfg)` confirms the `hard20` baseline of the config.
+   - It prints counts by orientation and confidence band (0-0.5, 0.5-0.85, 0.85-1), the runner-ups and a confidence histogram.
+   - It writes crop PDFs: 24 random predictions per band, and the 48 likely misses (Millepora as runner-up, closest first). Everything goes into a new `reports/millepora_<date>/`.
+   - It replaces `legacy/Millepora_Analysis.ipynb`, which stays in `notebooks/legacy/` as history. Precision still needs the blind review of notebook 03, which is on hold.
+   - **Verified:** lint clean; 585 tests pass, 6 skipped. Its table and sampling logic were run on the real manifest with synthetic predictions. **Not yet run in Colab.**
+4. **The exploration notebook (`notebooks/explore/embeddings.ipynb`) was run by the user** on the BioCLIP features (`features/finetuned-bioclip__masked.npz`): t-SNE and UMAP on 6,000 random kept crops, K-Means.
+
+## Observations from the embedding maps (user's screenshots)
+- **Colored by predicted genus:**
+  - Distinctive genera form clean islands: Acropora, Porites, Stylophora/Seriatopora, Platygyra, Millepora, Pocillopora.
+  - **Pavona** (910 of 6,000) has no island of its own. It is smeared through the large central mass, mixed with Leptastrea, Favia, Echinopora and Favites.
+  - The massive complex overlaps heavily; Favites is relatively tight.
+- **Caveat:** the coloring is circular. The predictions come from the same embeddings, so color agreement shows structure, not correctness.
+- **Colored by baseline confidence (UMAP):**
+  - **The large left mass and the long bottom stalk have very low confidence (mostly below 0.2).** These are the regions where Pavona and the massive genera mix.
+  - The distinct islands have high confidence (above 0.8).
+  - **Reading:** Pavona over-prediction (15.1% of crops against 0.44% in the survey) looks like the model's default for ambiguous, low-confidence crops, not a real Pavona population.
+- **K-Means (50 clusters) splits the low-confidence regions into a few big clusters.** On the map, cluster 0 is the left mass, and the teal and blue clusters (around 13-20) are the bottom stalk. These are the clusters to inspect in the gallery PDF.
+- **Compared with the old exploration** (`legacy/CoralMasking.ipynb`, DINOv2 / DinoVdeau on all 44,211 masks, no genus separation), the genera separate here because:
+  - the features are BioCLIP fine-tuned on reef taxonomy, not general-purpose DINO;
+  - only the 16,080 filtered crops are used;
+  - crops are cut in the mask frame.
+- **For the probe:** these features carry real genus structure, which is good news for the linear probe (idea 4).
+
+## Where the original exploration lives
+- `notebooks/legacy/CoralMasking.ipynb`, unchanged: CoralSCOP segmentation, DINOv2 and DinoVdeau embeddings, t-SNE, UMAP, K-Means and HDBSCAN, with its outputs.
+- The new exploration is `notebooks/explore/embeddings.ipynb` and `coralid.explore` (see `docs/exploration_embeddings.md`). The pipeline never depends on it.
+
+## Next
+- **Open the cluster gallery PDF** (`reports/embeddings_finetuned-bioclip__masked_<date>/`) for the low-confidence clusters (0, and the bottom stalk) and see what the crops are: sand, rubble, soft coral, encrusting growth, blur, or real Pavona. Free; it answers the Pavona question and shows what a reject / "other" option must catch.
+- **For a fairer comparison with the old DINO run,** judge cluster purity from the gallery, not from the genus coloring.
+- **Run `05_millepora`** and paste the overview.
+- **Decisions pending from the user:**
+  - keep or delete `weak_classification.ipynb` and `CoralMasking.ipynb` in `legacy/` (they are kept for now);
+  - a label per colony, or genus composition per site;
+  - the optional `sharpness_crop = "bbox"` setting;
+  - the Drive cleanup of `cleaned_images_crops/` and `cleaned_jsons_filtered/`.
+- **Then the algorithm phase,** starting from `docs/algorithm_ideas.md`.
