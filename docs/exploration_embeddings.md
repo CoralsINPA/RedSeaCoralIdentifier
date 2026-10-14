@@ -47,3 +47,7 @@ On the BioCLIP features of the 16,080 kept crops (6,000 random, UMAP and t-SNE):
 - **Coloring by predicted genus is circular,** since the predictions come from these same embeddings. Judge clusters from the gallery.
 
 Details are in `docs/agent_memory/sessions/2026-10-14_end_to_end_millepora_exploration.md`.
+
+## DinoVdeau results (2026-10-14)
+
+The full summary is in `docs/clustering_results.md`. In short: the independent DinoVdeau clusters separate growth forms and isolate non-coral objects (bare substrate labeled "Pavona", giant clams labeled "Lobophyllia"). That is the basis of the proposed plan in `docs/algorithm_ideas.md`.

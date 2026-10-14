@@ -30,7 +30,39 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
   - the legacy code mis-cropped the 221 portrait photos (13%);
   - some expert labels were therefore given on mis-cut crops.
 
+## Proposed plan (2026-10-14): gate → probe → agreement → blind evaluation
+
+**Why it changed:** clustering the crops with an independent, reef-trained model (DinoVdeau) showed that the largest errors are **non-coral objects forced into a genus**: bare substrate as "Pavona", giant clams as "Lobophyllia". It also showed that the clusters follow growth forms (branching, brain) that the classifier also sees. Details: `docs/clustering_results.md`. The plan below combines the clusters, the classifier and a few hours of expert time.
+
+| Step | What | Labels from | Cost |
+|---|---|---|---|
+| 0 | **Confirm cluster contents.** Assaf looks at one grid per DINO cluster (about 20) and names it: "substrate", "giant clam", "brain coral (Platygyra)", "branching, mixed", and so on. Only clearly pure clusters get a cluster-level label. | Assaf, from grids | Minutes per cluster |
+| 1 | **Gate: coral or not.** A small classifier (logistic regression on DinoVdeau and/or BioCLIP features) with classes coral / substrate / giant clam / other, trained on the confirmed non-coral clusters and coral clusters. Rejected crops get "other" instead of a genus. | Step 0 | Code, CPU |
+| 2 | **Genus: linear probe** (idea 4) on the BioCLIP embeddings (optionally with DINO features added). Trained on whole confirmed pure clusters (thousands of crops), plus crop-by-crop labels inside mixed clusters (branching genera, the massive complex). Grouped by photo. | Step 0, plus targeted crop labels | Code, CPU |
+| 3 | **Agreement flag.** Accept a genus when the probe, the zero-shot model and the crop's confirmed cluster agree. Otherwise mark it "uncertain" for review instead of guessing. | — | Code |
+| 4 | **Blind evaluation (idea 1.1):** about 300 crops, stratified by cluster and confidence, plus a random part, labeled blind by Assaf and never used for training. Report accuracy on accepted crops, the share rejected, and per-genus precision and recall, split by photo. | Assaf, blind | A few hours |
+
+**Expected effect:**
+- Most false Pavona and Lobophyllia disappear at the gate.
+- Platygyra recall rises through the probe.
+- The remaining hard cases (the massive complex, branching genera) are flagged, not guessed.
+
+**Limits:**
+- Clusters give growth form, not genus.
+- A cluster label is only as good as the cluster's purity.
+- "Reliable" is claimed only from step 4.
+
+**Ideas below that fold into this plan:**
+- 1 (step 4);
+- 2 (crop quality: blurred and edge-cut crops can join the gate's "other");
+- 3 (step 1);
+- 4 (step 2);
+- 5 (calibration: re-measure Pavona after the gate before correcting any prior);
+- 6 (taxonomy: ask Assaf about the brain-coral and branching clusters in step 0).
+
 ## Suggested priority
+
+*The list below predates the proposed plan above (2026-10-14), which now sets the order.*
 
 | # | Idea | Why first | Needs |
 |---|---|---|---|
