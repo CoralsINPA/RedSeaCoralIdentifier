@@ -26,6 +26,7 @@ EXTRAS = {
     "02_zero_shot": "clip,viz",
     "03_expert_review": "viz",
     "04_supervised_probe": "probe,viz",
+    "05_millepora": "viz",
     "explore/embeddings": "dino,cluster,viz",
 }
 PIPELINE = [name for name in EXTRAS if not name.startswith("explore/")]
@@ -153,6 +154,7 @@ def test_the_numbered_notebooks_are_the_pipeline_and_nothing_else():
             "02_zero_shot",
             "03_expert_review",
             "04_supervised_probe",
+            "05_millepora",
         ]
     )
 

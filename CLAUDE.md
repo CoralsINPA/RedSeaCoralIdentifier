@@ -24,6 +24,7 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
   - `02_zero_shot`: the baseline job (about 25 min on a T4) and its reports.
   - `03_expert_review`: the portrait-impact report on the expert set, the blind review sheet export (**on hold**, `RUN_EXPORT = False`; it prints which predictions it draws from) and its scoring.
   - `04_supervised_probe`: the probe on the expert set's 51 landscape rows (a template: too small to mean anything until the larger expert set of `docs/algorithm_ideas.md` idea 1.1 exists, set `LABELS_CSV`).
+- `notebooks/05_millepora.ipynb`: the Millepora analysis on the 20-genus baseline (it checks the source with `review_source.baseline_source` and stops otherwise): counts by orientation and confidence band, runner-ups, a confidence histogram, and crop PDFs of the predictions per band and of the likely misses (Millepora as runner-up), into a new `reports/millepora_<date>/`. It replaces `legacy/Millepora_Analysis.ipynb`; precision still needs the blind review of notebook 03.
 - `notebooks/explore/embeddings.ipynb`: the exploration notebook, outside the pipeline: the optional DINO job (`RUN_EMBED`, GPU), then maps, K-Means, HDBSCAN and a cluster gallery colored by the baseline's predicted genus; `FEATURES` (first setting) is `finetuned-bioclip__masked` by default, so it runs on a CPU.
 - `third_party/CoralSCOP`: git submodule (upstream zhengziqiang/CoralSCOP, pinned).
 - `docs/onboarding_errata.md`: where the PDF guide disagrees with the code and the data.
