@@ -1,6 +1,6 @@
 # Onboarding guide: errata
 
-`docs/Coral_Pipeline_Onboarding_Guide.pdf` (dated 2026-09-18) can't be edited here, so this file lists where it disagrees with the code and the data. Each item says how it was checked. Cell numbers are 0-based positions in the notebooks (`notebooks/legacy/`): **CM** = `CoralMasking.ipynb`, **WC** = `weak_classification.ipynb`, **MA** = `Millepora_Analysis.ipynb`. (The V2 notebook was excluded and removed on 2026-10-13; git history keeps it, and this file no longer cites its cells.)
+`docs/legacy/Coral_Pipeline_Onboarding_Guide.pdf` (dated 2026-09-18) can't be edited here, so this file lists where it disagrees with the code and the data. Each item says how it was checked. Cell numbers are 0-based positions in the notebooks (`notebooks/legacy/`): **CM** = `CoralMasking.ipynb`, **WC** = `weak_classification.ipynb`, **MA** = `Millepora_Analysis.ipynb`. (The V2 notebook was excluded and removed on 2026-10-13; git history keeps it, and this file no longer cites its cells.)
 
 ## 1. Containment removes the larger mask, not the smaller one
 

@@ -7,7 +7,7 @@
 
 Status: proposal only. Nothing has been changed yet.
 
-Sources read in full: `docs/Coral_Pipeline_Onboarding_Guide.pdf`, the three notebooks in `notebooks/`, and `CoralClassification_v2_Pipeline.ipynb`. The v2 notebook is on Drive only, and it produced both the 14,224-crop run and the tiered labels that the Millepora audit uses. I also checked the CoralSCOP submodule, one source photo and the file listings in the Drive folders.
+Sources read in full: `docs/legacy/Coral_Pipeline_Onboarding_Guide.pdf`, the three notebooks in `notebooks/`, and `CoralClassification_v2_Pipeline.ipynb`. The v2 notebook is on Drive only, and it produced both the 14,224-crop run and the tiered labels that the Millepora audit uses. I also checked the CoralSCOP submodule, one source photo and the file listings in the Drive folders.
 
 Cell numbers are 0-based positions in the `.ipynb` files. Abbreviations:
 **CM** = `CoralMasking.ipynb`, **WC** = `weak_classification.ipynb`, **MA** = `Millepora_Analysis.ipynb`, **V2** = `CoralClassification_v2_Pipeline.ipynb` (Drive).

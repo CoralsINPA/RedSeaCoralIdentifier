@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_DATA_ROOT = "/content/drive/MyDrive/colab notebooks/CoralsMasking"
-DEFAULT_BRANCH = "claude/awesome-archimedes-kvh4c7"
+DEFAULT_BRANCH = "main"
 DEFAULT_REPO_URL = "https://github.com/CoralsINPA/RedSeaCoralIdentifier"
 DEFAULT_REPO_DIR = "/content/RedSeaCoralIdentifier"
 DRIVE_MOUNT = "/content/drive"
@@ -79,7 +79,7 @@ import sys
 
 # ================================ SETTINGS: the only place to edit ================================
 DATA_ROOT = "/content/drive/MyDrive/colab notebooks/CoralsMasking"  # the Drive folder CoralsMasking
-BRANCH = "claude/awesome-archimedes-kvh4c7"
+BRANCH = "main"
 REPO_URL = "https://github.com/CoralsINPA/RedSeaCoralIdentifier"
 REPO_DIR = "/content/RedSeaCoralIdentifier"
 EXTRAS = "clip,viz"

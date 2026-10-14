@@ -20,7 +20,7 @@ import pytest
 from coralid.colab import BOOTSTRAP_CELL
 
 ROOT = Path(__file__).resolve().parents[1]
-BRANCH = "claude/awesome-archimedes-kvh4c7"
+BRANCH = "main"
 EXTRAS = {
     "01_segment_and_filter": "segment,viz",
     "02_zero_shot": "clip,viz",

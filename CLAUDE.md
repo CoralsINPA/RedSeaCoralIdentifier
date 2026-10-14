@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Genus-level coral identification for Red Sea reef photos: segment corals (CoralSCOP/SAM), then classify each crop with zero-shot CLIP-family models. See `README.md` for the overview and `docs/Coral_Pipeline_Onboarding_Guide.pdf` for the full Drive/notebook map.
+Genus-level coral identification for Red Sea reef photos: segment corals (CoralSCOP/SAM), then classify each crop with zero-shot CLIP-family models. See `README.md` for the overview and `ONBOARDING.md` for the newcomer guide. The original PDF guide is kept in `docs/legacy/` (outdated; `docs/onboarding_errata.md` lists where).
 
 ## Layout
 - `src/coralid/`: the installable package that is replacing the notebooks (plan: `docs/organization_plan.md`, staged prompts: `docs/agent_prompts/implement_organization_plan.md`). The **pipeline** is segment -> manifest (filters) -> zero-shot baseline -> evaluation and expert review -> linear probe. Embeddings and clustering are a **separate exploration direction** (`coralid.explore`); no pipeline module imports it. Pipeline modules:
@@ -14,7 +14,7 @@ Genus-level coral identification for Red Sea reef photos: segment corals (CoralS
   - the command line and Colab: `jobs` (the config wiring behind the commands), `cli` (`python -m coralid ...`), `colab` (the only module that knows about Colab: `setup()` and the `BOOTSTRAP_CELL` that every notebook starts with).
   - Exploration, outside the pipeline (`coralid.explore`, extras `dino` and `cluster`; see `docs/exploration_embeddings.md`): `dino` (the DINOv2 and DinoVdeau encoders), `embed` (`run_embeddings`: DINO embeddings of the kept masks, the `explore-embed` command), `clustering` (PCA, t-SNE, UMAP, K-Means, HDBSCAN with the legacy settings), `plots` (2-D maps colored by a number or a category), `analysis` (a features file joined to the baseline's predicted genus and the manifest's orientation, cluster summaries, the saved exploration report). `tests/test_structure.py` fails if a pipeline module imports it (only `cli.py` may, inside the `explore-embed` command).
   - Tests are in `tests/` (synthetic data only). Configs: `configs/iou60_sta55_pts32.yaml` (the run) and `configs/genera.yaml` (the `hard20` label set and the prompt sets, copied verbatim from the legacy notebooks).
-- `notebooks/legacy/`: the frozen reference notebooks, outputs included. `CoralMasking` and `weak_classification` stay until the user confirms an end-to-end run of the new notebooks:
+- `notebooks/legacy/`: the frozen reference notebooks, outputs included. Kept as history (the end-to-end run of the new notebooks was confirmed 2026-10-14):
   - `CoralMasking.ipynb`: segmentation + DINOv2/DinoVdeau embeddings + t-SNE/UMAP/K-Means.
   - `weak_classification.ipynb`: zero-shot genus labels (20 hard-coral genera). The "breakthrough" notebook. Cells 25-34 are scratch/debug.
   - `Millepora_Analysis.ipynb`: the old Millepora audit. It analyzed V2 output and is kept only as history; nothing in `coralid` uses it.

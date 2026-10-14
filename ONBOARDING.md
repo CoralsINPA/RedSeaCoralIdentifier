@@ -211,10 +211,14 @@ All three must pass. The tests use synthetic data, so they run on a laptop witho
 ## 9. Current status and where to help (October 2026)
 
 **Done:**
+- The shared Drive was tidied (2026-10-14). Outdated files moved, not deleted, into `archive/` folders.
+- The notebooks and this guide point to the `main` branch.
 - The original notebooks were reorganized into a tested package.
 - A bug that mis-cut all 221 portrait photos was fixed.
 - The baseline was re-run on all 16,080 crops.
 - Everything was verified end to end on the real data.
+
+**Open housekeeping:** the photos (`data_all/`), the masks (`json/`) and `results_all/` are owned by one volunteer's personal Google account. Their ownership should move to the team account so the project never depends on one person's account.
 
 **Known problems** (details in `docs/clustering_results.md` and `docs/algorithm_ideas.md`):
 - **Non-coral forced into a genus.** "Pavona" is predicted 34× more often than in the survey; much of it is bare rock. Giant clams are called "Lobophyllia".
@@ -246,7 +250,7 @@ All three must pass. The tests use synthetic data, so they run on a laptop witho
 | `docs/algorithm_ideas.md` | Every improvement idea, with evidence and cost, and the proposed plan |
 | `docs/clustering_results.md` | What the clusters showed (with crop examples described) |
 | `docs/exploration_embeddings.md` | The exploration direction and how to run it |
-| `docs/onboarding_errata.md` | Where the older PDF guide (`docs/Coral_Pipeline_Onboarding_Guide.pdf`) is out of date |
+| `docs/onboarding_errata.md` | Where the older PDF guide (`docs/legacy/Coral_Pipeline_Onboarding_Guide.pdf`) is out of date |
 | `docs/agent_memory/` | The detailed project history and results of each work session |
 | `CLAUDE.md` | A dense technical map of the code, written for AI assistants but useful for people too |
 
