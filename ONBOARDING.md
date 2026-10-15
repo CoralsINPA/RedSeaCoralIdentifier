@@ -43,7 +43,7 @@ A model called **SAM** (Segment Anything, by Meta) draws an outline (a **mask**)
 ![The same photo segmented with three different SAM settings](docs/images/02_segmentation_settings.jpg)
 *SAM settings change what is found: stricter settings (left) find fewer corals. We use `IOU60_STA55` (right), the most permissive (from `CoralMasking.ipynb`).*
 
-*To see it:* the run's [`visualizations/`](https://drive.google.com/drive/folders/1K8tdekeo-QMs5CAy2fA9IWKGYhh3CP5D) folder on Drive has the SAM masks drawn over many photos (one image per photo; these are the masks the pipeline uses). Notebook 01's last cell draws the same for one photo, colored by whether the filters kept each mask or why they dropped it.
+*To see it on the current pipeline:* notebook 01 saved, for photo IMG_8909 ([folder](https://drive.google.com/drive/folders/1TJE66XdraZuNfmIW4lUuvFOypbMYrSK0)): [all SAM masks and their boxes](https://drive.google.com/file/d/1H29q5KPgy4YbcKU3MGLrkQ0IMnT8wbLE/view), [only the masks kept as crops](https://drive.google.com/file/d/1kWWdsXfuVgjq-jd9qovZDB6eloCK9YKa/view) and [every mask colored by why it was kept or dropped](https://drive.google.com/file/d/17y74dnY7f1sV2eN5c6nTDp-c4ej6x3qq/view) (green kept, blue too small, orange inside a bigger mask, purple too thin, red blurry). Run the last cells of notebook 01 with another `SAMPLE_PHOTO` to see any photo. The run's [`visualizations/`](https://drive.google.com/drive/folders/1K8tdekeo-QMs5CAy2fA9IWKGYhh3CP5D) folder has older mask drawings of many photos from the original notebook.
 
 **Crop:** the part of the photo inside one mask. Everything outside the mask is painted black, so the model sees only the coral.
 
@@ -55,7 +55,7 @@ A model called **SAM** (Segment Anything, by Meta) draws an outline (a **mask**)
 
 The result is the **manifest**, a table with one row per mask, saying whether it was kept and, if not, why.
 
-*To see it:* notebook 01 also draws the filter funnel: 44,211 masks go in, 16,080 crops come out, and the size filter removes the most.
+*To see it:* the [filter funnel](https://drive.google.com/file/d/18PXlRKGpm48X63v9i2s5FzPJ_79-0Vfe/view) saved by notebook 01: 44,211 masks go in, 16,080 crops come out, and the size filter removes the most.
 
 **Embedding:** a neural network turns an image into a list of numbers, for example 512 of them. Similar-looking images get similar lists. Think of it as coordinates of the image in a "space of appearances". Most of what we do happens on these numbers, not on the pixels.
 
