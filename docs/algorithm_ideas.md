@@ -139,6 +139,9 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 - `MIN_AREA` 25,000 px (in the 2560 frame, about 0.5% of the photo, roughly 158×158 px) removes **24,754 of 44,211 masks (56%)**. It is the biggest filter.
 - It excludes most small colonies. That's fine for per-colony labels, but a bias if counts per genus matter (1.5).
 - Tune size and blur together. A small, sharp colony may be more identifiable than a large, blurry one.
+- **Try a lower `MIN_AREA` (2026-10-15 brainstorm).** For example 10,000 px instead of 25,000, together with the tiles of idea 7, so that small crops are not just upscaled blur.
+  - What to measure: how many masks come back (the funnel of notebook 01 shows it), whether they are real colonies or fragments (look at a grid), and the accuracy on them once labels exist.
+  - Rebuild the manifest into a new file; never overwrite the current one.
 - Minor: a pure-black photo pixel inside a mask counts as "not visible" in `visible_px`.
 
 ## 3. A reject / "other" outcome
@@ -149,6 +152,13 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 
 **Ideas.**
 - **Confidence or margin threshold:** below it, output "other / uncertain". Needs calibration first (idea 5).
+  - **Why it is promising (2026-10-15 brainstorm):** the bare-substrate cluster that drives the "Pavona" excess has a mean confidence of only about 0.30 (`docs/clustering_results.md`, cluster 8). A threshold would drop much of it.
+  - **The catch:** brain corals (*Platygyra*) are already under-called, often with low confidence. A single global threshold would remove them too and make their shortfall worse. So:
+    - choose the threshold from data, with per-genus thresholds where possible (idea 5);
+    - report what it costs: crops dropped per genus, and the genus mix against the survey before and after;
+    - on the expert set, plot accuracy against confidence (landscape rows) to see whether low confidence really means wrong.
+  - Prefer **margin** (top-1 minus top-2 probability) as well as confidence: a crop torn between two genera is a better "uncertain" case than one with a low but clear winner.
+  - Low-confidence crops are better marked "uncertain" than deleted: they are exactly the crops to send to Assaf next (idea 4, active learning).
 - **Soft-coral prompts as distractors (prompts to write and compare; no such prompt set exists yet).** Score against the 20 hard genera plus prompts for the soft corals seen in the expert set (Cladiella, Sinularia, Litophyton). If a soft coral wins, output "other". The output stays 20 hard genera.
 - **"Other" as a class in the linear probe** (idea 4), trained on soft-coral and non-coral crops.
 - **Open-set check:** distance to the nearest genus prototype in embedding space.
@@ -191,6 +201,12 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
   - **Ask Assaf:** merge them? Which name for Red Sea specimens?
 - **Group the massive / merulinid complex.** Dipsastraea, Favites, Goniastrea, Favia, Leptastrea, Cyphastrea and Acanthastrea/Lobophyllia cause 13 of 23 errors.
   - Option: hierarchical output. A group label when the genus is uncertain, the genus when confident. Ecologists may accept the group level.
+- **Two-level classification: growth form first, then genus (2026-10-15 brainstorm).**
+  - Level 1: growth form (branching, massive, encrusting, plate/foliose, and "not coral"). Level 2: the genus, chosen only among the genera of that form.
+  - Why: the DinoVdeau clusters already separate growth forms well (branching, brain corals; `docs/clustering_results.md`), so level 1 is an easier question, and level 2 has fewer genera to confuse.
+  - Labels for level 1 are cheap: Assaf can name whole clusters (step 0 of the proposed plan).
+  - Output the form when the genus is uncertain, so a crop is never forced into a wrong genus.
+  - Needs a form for each of the 20 genera, agreed with Assaf (some genera have several forms, e.g. *Montipora*, *Porites*).
 - **Taxonomy prompt version (a prompt set to write and compare; it does not exist yet).** `taxonomy_v1` files the genera under older families (e.g. Faviidae). A version that follows the current classification (Merulinidae, incertae sedis) would be a new, versioned prompt set in `configs/genera.yaml`. The best choice depends on BioCLIP's training text and must be measured (idea 8).
 
 ## 7. Resolution and crop design
@@ -203,7 +219,12 @@ Collected on 2026-10-11, during the code organization, for the algorithm-plannin
 - **Patch / tile classification:** classify several patches inside the mask at native resolution and aggregate (mean of probabilities, or of embeddings). Likely most useful for the massive complex.
 - **Multi-scale input:** whole-colony crop plus zoomed texture patches.
 - **Background treatment:** compare masked-on-black (today), the bbox crop with context, and a blurred or grey background. The black outline may also bias the model.
-- **Test-time augmentation:** flips and small rotations, averaged.
+  - **2026-10-15 brainstorm, the variant to try first:** keep a thin ring of real background around the mask (dilate the mask by a few percent of the crop size) and black out only beyond it. The colony's edge texture stays, and the model sees fewer unnatural black borders.
+  - Compare the variants on the same crops, scored on the expert set (landscape rows) and on the genus mix against the survey.
+- **Test-time augmentation (2026-10-15 brainstorm):** classify each crop several times (horizontal and vertical flips, 90° rotations, a slight zoom) and average the probabilities, or the embeddings.
+  - Corals have no "up" in a top-down photo, so rotations and flips are valid views of the same colony.
+  - Cost: compute only (about 4-8× the baseline's 25 minutes on a T4). No labels needed.
+  - Expect steadier predictions and a small accuracy gain; measure it the same way as above. It also gives an "agreement across views" score that can feed the uncertain flag (idea 3).
 
 ## 8. Prompt and backbone comparison, done properly
 
