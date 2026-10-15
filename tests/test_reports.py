@@ -244,3 +244,16 @@ def test_the_probe_report_lines_are_what_the_command_prints():
     ]
     report.zero_shot = None
     assert len(probe_report_lines(report, {"x": 2})) == 3
+
+
+def test_save_figure_never_overwrites(tmp_path):
+    from matplotlib.figure import Figure
+
+    from coralid.reports import save_figure
+
+    fig = Figure()
+    fig.subplots().plot([0, 1], [0, 1])
+    first = save_figure(fig, tmp_path, "chart")
+    second = save_figure(fig, tmp_path, "chart")
+    assert first.name == "chart.png" and second.name == "chart_2.png"
+    assert first.stat().st_size > 0 and second.exists()

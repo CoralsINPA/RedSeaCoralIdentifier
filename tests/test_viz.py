@@ -11,11 +11,13 @@ from coralid.config import CropConfig  # noqa: E402
 from coralid.crops import bbox_crop  # noqa: E402
 from coralid.masks import AnnotationStore  # noqa: E402
 from coralid.viz import (  # noqa: E402
+    OVERLAY_COLORS,
     confusion_heatmap,
     crop_gallery_pdf,
     cut_crops,
     funnel_chart,
     mask_overlay,
+    photo_panels,
 )
 from tests.helpers import make_annotation, rect_mask, write_json_dir  # noqa: E402
 
@@ -143,9 +145,28 @@ def test_mask_overlay_draws_the_masks_of_the_table(store_and_images):
     by_reason = mask_overlay(table, store, images, "A.JPG", color_col="reject_reason")
     legend = by_reason.axes[0].get_legend()
     assert sorted(t.get_text() for t in legend.get_texts()) == ["blurry", "kept"]
+    kept_only = mask_overlay(
+        table[table["reject_reason"].isna()], store, images, "A.JPG", "reject_reason"
+    )
+    kept_rgb = kept_only.axes[0].get_images()[1].get_array()[40, 40, :3]
+    np.testing.assert_allclose(kept_rgb, OVERLAY_COLORS["kept"])  # the same color on every photo
     only_one = mask_overlay(table, store, images, "A.JPG", max_masks=1)
     assert only_one.axes[0].get_title() == "A.JPG: 1 masks"
     assert only_one.axes[0].get_images()[1].get_array()[120, 150, 3] == 0  # the smaller one is out
+
+
+def test_photo_panels_shows_original_masks_and_boxes(store_and_images):
+    store, images = store_and_images
+    table = pd.DataFrame({"image_name": ["A.JPG", "A.JPG", "B.JPG"], "coral_id": [0, 1, 0]})
+    fig = photo_panels(table, store, images, "A.JPG")
+    left, middle, right = fig.axes
+    original = left.get_images()[0].get_array()
+    painted = middle.get_images()[0].get_array()
+    assert original.shape == painted.shape == (150, 200, 3)  # the photo, in its mask frame
+    assert (painted[40, 40] != original[40, 40]).any()  # inside a mask: tinted
+    np.testing.assert_array_equal(painted[0, 0], original[0, 0])  # outside: unchanged
+    assert middle.get_title() == "Masks (2)"
+    assert len(right.patches) == 2
 
 
 def test_confusion_heatmap_shows_counts_or_row_shares():

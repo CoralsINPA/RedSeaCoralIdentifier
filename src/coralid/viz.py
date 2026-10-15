@@ -7,6 +7,8 @@ Nothing here computes: rows to show are chosen by the caller and arrive in a tab
 - `crop_gallery_pdf`: the same, with the rows grouped by a column, one section per group (a
   genus gallery, a cluster gallery);
 - `mask_overlay`: a photo with its masks drawn, optionally colored by a column (CM cell 8);
+- `photo_panels`: one photo three ways, original / masks in purple / bounding boxes (the last
+  cell of `weak_classification.ipynb`);
 - `confusion_heatmap` and `funnel_chart`: the plots that need no photo (a confusion matrix, the
   filter funnel). They live in `coralid.viz_plots` and are importable from here too. (The 2-D
   maps of the exploration direction are in `coralid.explore.plots`.)
@@ -35,15 +37,28 @@ from coralid.viz_plots import confusion_heatmap, funnel_chart
 
 __all__ = [
     "CROP_VIEWS",
+    "OVERLAY_COLORS",
     "confusion_heatmap",
     "crop_gallery_pdf",
     "crop_grid_pdf",
     "cut_crops",
     "funnel_chart",
     "mask_overlay",
+    "photo_panels",
 ]
 
 CROP_VIEWS = ("masked", "square", "bbox")
+
+# Fixed colors for the manifest's drop reasons, so a reason looks the same on every photo.
+OVERLAY_COLORS = {
+    "kept": (0.17, 0.63, 0.17),  # green
+    "area": (0.12, 0.47, 0.71),  # blue
+    "containment": (1.0, 0.5, 0.05),  # orange
+    "aspect": (0.58, 0.40, 0.74),  # purple
+    "blurry": (0.84, 0.15, 0.16),  # red
+    "not_visible": (0.5, 0.5, 0.5),  # gray
+    "image_missing": (0.55, 0.34, 0.29),  # brown
+}
 
 
 def _thumbnail(crop: np.ndarray, max_side: int) -> np.ndarray:
@@ -242,7 +257,9 @@ def mask_overlay(
     else:
         values = shown[color_col].where(shown[color_col].notna(), "kept").astype(str)
         cycle = colormaps["tab10"]
-        palette = {v: cycle(i % 10)[:3] for i, v in enumerate(sorted(set(values)))}
+        others = sorted(set(values) - set(OVERLAY_COLORS))
+        palette = {v: c for v, c in OVERLAY_COLORS.items() if v in set(values)}
+        palette.update({v: cycle(i % 10)[:3] for i, v in enumerate(others)})
     overlay = np.zeros((height, width, 4))
     for coral_id, value in zip(shown["coral_id"], values, strict=True):
         mask = decode_rle(by_id[int(coral_id)]["segmentation"])
@@ -256,4 +273,47 @@ def mask_overlay(
     ax.set_title(f"{image_name}: {len(shown)} masks")
     if color_col is not None:
         ax.legend(handles=[Patch(color=c, label=v) for v, c in palette.items()], loc="upper right")
+    return fig
+
+
+def photo_panels(
+    table: pd.DataFrame,
+    store: AnnotationStore,
+    images_dir: str | os.PathLike[str],
+    image_name: str,
+    alpha: float = 0.5,
+) -> Any:
+    """One photo three ways, side by side: the original, its masks, their boxes; returns a Figure.
+
+    The masks of `table` rows for `image_name` (`coral_id`) are painted purple over the photo in
+    the middle panel and outlined by their bounding boxes in the right one, as in the last cell
+    of `weak_classification.ipynb`. The photo is loaded in its mask frame.
+    """
+    from matplotlib.figure import Figure
+    from matplotlib.patches import Rectangle
+
+    shown = table[table["image_name"] == image_name]
+    width, height = store.frame(image_name)
+    photo = load_in_mask_frame(Path(images_dir) / image_name, width, height)
+    by_id = store.load(image_name).by_id()
+    covered = np.zeros((height, width), dtype=bool)
+    for coral_id in shown["coral_id"]:
+        covered |= decode_rle(by_id[int(coral_id)]["segmentation"])
+    painted = photo.astype(np.float32)
+    purple = np.array([138, 43, 226], dtype=np.float32)
+    painted[covered] = painted[covered] * (1 - alpha) + purple * alpha
+    fig = Figure(figsize=(18, 6 * height / width + 0.6))
+    left, middle, right = fig.subplots(1, 3)
+    left.imshow(photo)
+    left.set_title(f"Original: {image_name}")
+    middle.imshow(painted.astype(np.uint8))
+    middle.set_title(f"Masks ({len(shown)})")
+    right.imshow(photo)
+    right.set_title("Bounding boxes")
+    for coral_id in shown["coral_id"]:
+        x, y, w, h = by_id[int(coral_id)]["bbox"]
+        right.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor="lime", linewidth=1))
+    for ax in (left, middle, right):
+        ax.axis("off")
+    fig.tight_layout()
     return fig
