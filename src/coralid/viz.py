@@ -37,6 +37,7 @@ from coralid.viz_plots import confusion_heatmap, funnel_chart
 
 __all__ = [
     "CROP_VIEWS",
+    "OVERLAY_COLORS",
     "confusion_heatmap",
     "crop_gallery_pdf",
     "crop_grid_pdf",
@@ -47,6 +48,17 @@ __all__ = [
 ]
 
 CROP_VIEWS = ("masked", "square", "bbox")
+
+# Fixed colors for the manifest's drop reasons, so a reason looks the same on every photo.
+OVERLAY_COLORS = {
+    "kept": (0.17, 0.63, 0.17),  # green
+    "area": (0.12, 0.47, 0.71),  # blue
+    "containment": (1.0, 0.5, 0.05),  # orange
+    "aspect": (0.58, 0.40, 0.74),  # purple
+    "blurry": (0.84, 0.15, 0.16),  # red
+    "not_visible": (0.5, 0.5, 0.5),  # gray
+    "image_missing": (0.55, 0.34, 0.29),  # brown
+}
 
 
 def _thumbnail(crop: np.ndarray, max_side: int) -> np.ndarray:
@@ -245,7 +257,9 @@ def mask_overlay(
     else:
         values = shown[color_col].where(shown[color_col].notna(), "kept").astype(str)
         cycle = colormaps["tab10"]
-        palette = {v: cycle(i % 10)[:3] for i, v in enumerate(sorted(set(values)))}
+        others = sorted(set(values) - set(OVERLAY_COLORS))
+        palette = {v: c for v, c in OVERLAY_COLORS.items() if v in set(values)}
+        palette.update({v: cycle(i % 10)[:3] for i, v in enumerate(others)})
     overlay = np.zeros((height, width, 4))
     for coral_id, value in zip(shown["coral_id"], values, strict=True):
         mask = decode_rle(by_id[int(coral_id)]["segmentation"])

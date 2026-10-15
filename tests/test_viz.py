@@ -11,6 +11,7 @@ from coralid.config import CropConfig  # noqa: E402
 from coralid.crops import bbox_crop  # noqa: E402
 from coralid.masks import AnnotationStore  # noqa: E402
 from coralid.viz import (  # noqa: E402
+    OVERLAY_COLORS,
     confusion_heatmap,
     crop_gallery_pdf,
     cut_crops,
@@ -144,6 +145,11 @@ def test_mask_overlay_draws_the_masks_of_the_table(store_and_images):
     by_reason = mask_overlay(table, store, images, "A.JPG", color_col="reject_reason")
     legend = by_reason.axes[0].get_legend()
     assert sorted(t.get_text() for t in legend.get_texts()) == ["blurry", "kept"]
+    kept_only = mask_overlay(
+        table[table["reject_reason"].isna()], store, images, "A.JPG", "reject_reason"
+    )
+    kept_rgb = kept_only.axes[0].get_images()[1].get_array()[40, 40, :3]
+    np.testing.assert_allclose(kept_rgb, OVERLAY_COLORS["kept"])  # the same color on every photo
     only_one = mask_overlay(table, store, images, "A.JPG", max_masks=1)
     assert only_one.axes[0].get_title() == "A.JPG: 1 masks"
     assert only_one.axes[0].get_images()[1].get_array()[120, 150, 3] == 0  # the smaller one is out
