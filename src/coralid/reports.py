@@ -220,6 +220,21 @@ def new_report_folder(
     return folder
 
 
+def save_figure(figure: Any, folder: str | os.PathLike[str], name: str, dpi: int = 110) -> Path:
+    """Save a matplotlib figure as `<folder>/<name>.png` and return the path.
+
+    An existing file is never overwritten: the next free `<name>_2.png`, `_3`... is taken, so a
+    cell run twice keeps both pictures.
+    """
+    path = Path(folder) / f"{name}.png"
+    n = 1
+    while path.exists():
+        n += 1
+        path = Path(folder) / f"{name}_{n}.png"
+    figure.savefig(path, dpi=dpi, bbox_inches="tight")
+    return path
+
+
 def write_baseline_report(
     report: BaselineReport,
     reports_dir: str | os.PathLike[str],
