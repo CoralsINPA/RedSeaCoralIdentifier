@@ -269,3 +269,44 @@ Minor: SAM's bbox is one pixel short (`w = right - left` on inclusive indices); 
 ## 11. Exploring embeddings
 
 Embeddings and clustering (DINO features, K-Means, HDBSCAN, maps) are a separate direction that the pipeline never depends on: see [`exploration_embeddings.md`](exploration_embeddings.md).
+
+## 12. External data and models (searched 2026-10-15)
+
+A web and literature search for Red Sea training data and for a ready-made coral / not-coral gate. Pages on Hugging Face could not be opened directly from the search environment, so licences and file lists marked "to confirm" were read from search snippets only.
+
+### Coralscapes: the most useful find (gate, growth form, Red Sea)
+- **What:** 2,075 Red Sea images (video frames, 1024×2048) with 174k expert polygons in **39 classes**, from 35 dive sites in Djibouti, Eritrea, Sudan, **Jordan and Israel** (so it includes the Gulf of Aqaba). Sauder et al. 2025, [arXiv 2503.20000](https://arxiv.org/abs/2503.20000).
+- **Classes that match our needs:**
+  - non-coral: Sand, Rubble, Hard Substrate, Algae Covered Substrate, Dark, Background, **Clam**, Dead Clam, Sponge, Fish, Sea Urchin, Sea Cucumber, Anemone, Crown of Thorns, Seagrass, Trash;
+  - live coral by growth form: Branching Alive, Acropora Alive, Table Acropora Alive, Pocillopora Alive, Stylophora Alive, **Meandering Alive** (Platygyra, Lobophyllia, Symphyllia), **Massive/Meandering Alive** (Porites, Favia, Favites...), Millepora, Turbinaria, Other Coral Alive;
+  - dead and bleached versions of the growth forms.
+- **Where:** frames and masks on Hugging Face (`EPFL-ECEO/coralscapes`), and on [Zenodo 15061505](https://zenodo.org/records/15061505) with the full-resolution frames and **trained segmentation checkpoints** (best: SegFormer MiT-b5, 82.8% pixel accuracy, 57.8 mIoU on unseen sites). Licence: to confirm on the dataset page.
+- **How we could use it, with no new labels:**
+  1. Run the released SegFormer on our photos.
+  2. For each CoralSCOP mask, take the majority Coralscapes class of its pixels.
+  3. That gives the **gate** (sand, rubble, hard substrate, clam → not coral; this is exactly cluster 8 and cluster 14) and a **growth form** for level 1 of the two-level idea (idea 6), from a model trained in the Red Sea, including Israel.
+- **Check first:** on the crops of clusters 8 (bare substrate) and 14 (giant clams), and on the 51 landscape expert rows.
+
+### DinoVdeau's own classifier (the model we cluster with)
+- **What:** the Hugging Face checkpoint `coralid` uses (`lombardata/DinoVdeau-large-2024_04_03-with_data_aug...`) is a **multilabel** classifier, trained on the Seatizen Atlas images from **Réunion and the south-west Indian Ocean**, not the Red Sea.
+- **Classes** (from the class table of [arXiv 2502.17883](https://arxiv.org/abs/2502.17883); the exact list of our checkpoint is in its `config.json` `id2label` and can be printed in Colab in one line): Acropore_branched, Acropore_digitised, Acropore_tabular, Acropore_sub_massive (some versions), No_acropore_encrusting, No_acropore_foliaceous, No_acropore_massive, No_acropore_sub_massive, Millepore, Living_coral, **Dead_coral, Rock, Sand, Rubble/Scrap**, Algae_assembly, Algae_limestone, Algae_sodding, Sponge, Fish, Sea_cucumber, Sea_urchins, two seagrasses, Human_object, **Blurred/Useless**.
+- **Use:** the same gate and growth-form idea as Coralscapes, and it is already in our code. But it was trained on whole photos from another ocean, and we would feed it masked crops on black, so test it on clusters 8 and 14 before trusting it. Coralscapes is the better first choice for our region.
+
+### ReefNet (genus labels; also what our BioCLIP was fine-tuned on)
+- **What:** about 925k genus-level **point** labels from 76 CoralNet sources, mapped to WoRMS; 39 hard-coral classes (38 genera + Fungiidae), **Scleractinia only, so no Millepora**. Felemban et al., [arXiv 2510.16822](https://arxiv.org/abs/2510.16822).
+- **Red Sea part:** Al-Wajh lagoon (Saudi Arabia): 1,376 photos, 10 points each, 4,624 hard-coral points in 13 genera (mostly Porites, Acropora, Pocillopora, Montipora).
+- **Where:** annotations on Hugging Face (`ReefNet/ReefNet-1.0`: an all-annotations CSV of about 2.7-3 GB and `ReefNet_RSG_annotations.csv` for Al-Wajh); CoralNet images through a download script (code: [GitHub ReefNet_DS_BenchMark](https://github.com/ReefNet-Project/ReefNet_DS_BenchMark)). Licence: the tags disagree (CC BY 4.0 in an old README, **CC BY-NC-SA 4.0** in the current metadata), to confirm.
+- **Use:**
+  - **A Red Sea test set for genus**, independent of Assaf's: put each Al-Wajh point inside a CoralSCOP mask and score our classifier on it. Al-Wajh images are promised on Hugging Face; check that they are there.
+  - **Training labels for the probe** (idea 4), the same point-to-mask way, for the genera we share.
+  - Caveat: our fine-tuned BioCLIP was already trained on ReefNet, so ReefNet's own sources are not an independent test; Al-Wajh is the cleanest part.
+
+### Eilat (Gulf of Aqaba)
+- Raphael et al. 2020 ([Sci. Rep. 10:12959](https://www.nature.com/articles/s41598-020-69201-w)): over 5,000 coral images from a shallow Eilat reef in 11 species, but listed as **not openly available** (Coralscapes' dataset table). Worth asking the authors directly: same reefs, species-level labels.
+- An older public "Eilat" set (212 images, 1,123 points, 8 classes) is coarse and small; low priority.
+
+### Suggested next steps
+1. **Coralscapes gate test** (Colab, GPU, no labels): run the released SegFormer on the photos of clusters 8 and 14 and on the expert-set photos; report the share of masks it calls substrate or clam, per cluster.
+2. **Print DinoVdeau's `id2label`** and run its head on the same crops, as a comparison.
+3. **Download the Al-Wajh annotations** (2.4 MB) and check the genera against our 20; if the images are out, build the point-to-mask test set.
+4. Confirm the licences of Coralscapes and ReefNet before training on them (CC BY-NC-SA would still allow this non-commercial research use, with attribution and the same licence for derived data).
