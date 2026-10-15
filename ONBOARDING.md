@@ -37,7 +37,7 @@ Improving this is the current work (section 9).
 **Segmentation: "where is each coral?"**
 A model called **SAM** (Segment Anything, by Meta) draws an outline (a **mask**) around every object in a photo. We use **CoralSCOP**, a version of SAM retrained on coral photos. Each mask is stored as a compact code (an "RLE") in a JSON file, one file per photo.
 
-*To see it:* run notebook 01; its last cell draws one photo with every mask outlined, colored by whether the filters kept it or why they dropped it.
+*To see it:* the run's [`visualizations/`](https://drive.google.com/drive/folders/1K8tdekeo-QMs5CAy2fA9IWKGYhh3CP5D) folder on Drive has the SAM masks drawn over many photos (one image per photo; these are the masks the pipeline uses). Notebook 01's last cell draws the same for one photo, colored by whether the filters kept each mask or why they dropped it.
 
 **Crop:** the part of the photo inside one mask. Everything outside the mask is painted black, so the model sees only the coral.
 
@@ -57,7 +57,7 @@ The result is the **manifest**, a table with one row per mask, saying whether it
 We use **BioCLIP**, a model trained on millions of biology images together with their text descriptions (we use a version fine-tuned on reef images by the ReefNet project). It can embed both an image and a sentence such as "Animalia Cnidaria Anthozoa Scleractinia Acroporidae Acropora". For each crop we compare its embedding with the embedding of each of the 20 genus descriptions and pick the closest. This is "zero-shot" because it never saw our labeled crops.
 - **Confidence:** a number from 0 to 1 that says how sure the model is. It is useful for ranking crops, but it isn't a calibrated probability.
 
-*To see it:* [`millepora_by_band.pdf`](https://drive.google.com/file/d/1R2Mg0DLyn4evaTBYuFVpXHRtNkW38t-q/view) on Drive shows crops (outside the mask painted black) with the predicted genus and confidence.
+*To see it:* notebook 02 prints the results as tables: the score on the expert set per genus, the most common mix-ups (for example *Dipsastraea* called *Favia*), and the predicted genus mix next to the survey counts (where the "Pavona" excess shows up).
 
 **Expert evaluation:** Assaf labeled 77 crops by hand. We compare the model's answer with his.
 - **Accuracy** is the share it got right.
