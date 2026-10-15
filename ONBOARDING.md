@@ -69,7 +69,7 @@ We use **BioCLIP**, a model trained on millions of biology images together with 
 ![Bar chart of each genus's share in the survey (black) and in the predictions of several prompt strategies](docs/images/04_genus_mix.jpg)
 *Predicted genus mix against the survey (black bars). Purple, `finetuned-bioclip_taxonomy_masked`, is the method in use: note Pavona far above the survey and Platygyra far below. The other colors were earlier experiments.*
 
-*To see it:* notebook 02 prints the results as tables: the score on the expert set per genus, the most common mix-ups (for example *Dipsastraea* called *Favia*), and the predicted genus mix next to the survey counts (where the "Pavona" excess shows up).
+*To see it:* notebook 02 draws all of this for the current baseline: the genus mix against the survey, a heat map of which genera get mixed up on the expert set, and a grid of random crops per predicted genus colored by confidence (change `SEED` for another sample).
 
 **Expert evaluation:** Assaf labeled 77 crops by hand. We compare the model's answer with his.
 - **Accuracy** is the share it got right.
